@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+/* Custom theme (opsional) */
+@theme {
+  --color-brand-red-600: #c1272d; /* merah utama, agak gelap */
+  --color-brand-red-700: #a21d21; /* hover/heading */
+  --color-brand-red-100: #fee2e2; /* aksen lembut */
+}
+
+:root {
+  color-scheme: light;
+  --background: #ffffff;
+  --foreground: #1f2937; /* gray-800 */
+}
+
+html, body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
