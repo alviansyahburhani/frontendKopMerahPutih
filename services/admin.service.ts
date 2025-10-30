@@ -30,6 +30,14 @@ export interface Member {
   updatedAt: string;
 }
 
+export interface CreateUserDto {
+  email: string;
+  password: string;
+  fullName: string;
+  roleName: string; // misal: 'Anggota'
+  memberId: string; // ID dari Member yang baru dibuat
+}
+
 export interface BoardMember {
   id: string; // ID dari tabel board_positions
   jabatan: 'Ketua' | 'Sekretaris' | 'Bendahara'; // Sesuai enum JabatanPengurus
@@ -53,6 +61,43 @@ export interface BoardMember {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface User {
+  id: string;
+  email: string;
+  fullName: string;
+  roleId: string;
+  memberId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  // Tambahkan relasi jika perlu
+  role?: { name: string };
+  member?: { fullName: string };
+}
+
+// [TAMBAHKAN] Interface untuk data Pengawas (Buku 03)
+export interface SupervisoryPosition {
+  id: string; // ID dari tabel supervisory_positions
+  jabatan: string; // 'Ketua Pengawas', 'Anggota Pengawas', dll.
+  tanggalDiangkat: string; // ISO Date string
+  tanggalBerhenti?: string | null; // ISO Date string or null
+  alasanBerhenti?: string | null;
+  memberId: string; // ID Anggota
+  // Data dari relasi 'member'
+  member: {
+    id: string;
+    memberNumber?: string;
+    fullName: string;
+    occupation?: string;
+    address?: string;
+    gender?: Gender;
+    placeOfBirth?: string;
+    dateOfBirth?: string; // ISO Date string
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
 
 // DTO untuk membuat anggota (sesuaikan dengan backend)
 export interface CreateMemberDto {
@@ -185,6 +230,15 @@ export type PendingRegistration = Omit<MemberRegistration, 'hashedPassword'>;
 
 export const adminService = {
 
+  /**
+   * BARU: Membuat entitas User (akun login) untuk Anggota.
+   * Endpoint: POST /users
+   */
+  createUser: (dto: CreateUserDto): Promise<User> => {
+    // Pastikan endpoint '/users' ini BENAR
+    return handleRequest(api.post<User>('/users', dto));
+  },
+
 
   /**
    * Mengambil daftar semua tenant.
@@ -193,6 +247,9 @@ export const adminService = {
   getAllTenants: (): Promise<TenantSummary[]> => {
     return handleRequest(api.get<TenantSummary[]>('/tenants'));
   },
+
+
+
 
   /**
    * Mengambil semua data karyawan.
@@ -230,6 +287,10 @@ export const adminService = {
   },
 
 
+
+
+
+
   /**
    * Mengambil semua data pengurus (board members).
    * Endpoint: GET /board-positions
@@ -238,6 +299,7 @@ export const adminService = {
     // Pastikan endpoint '/board-positions' ini BENAR
     return handleRequest(api.get<BoardMember[]>('/board-positions'));
   },
+
 
   /**
    * Mengambil jabatan pengurus aktif milik pengguna yang sedang login.
@@ -275,25 +337,25 @@ export const adminService = {
     return handleRequest(api.delete<{ message: string }>(`/board-positions/${id}`));
   },
 
-
-  /**
-   * BARU: Mengambil informasi detail tenant/koperasi saat ini.
-   * Endpoint: GET /admin/tenant-info (Contoh)
-   * Backend akan mengambil tenantId dari token JWT admin.
-   */
-  // getTenantInfo: (): Promise<TenantInfo> => {
-  //   // Sesuaikan endpoint jika berbeda
-  //   return handleRequest(api.get<TenantInfo>('/admin/tenant-info'));
-  // },
+  /**
+   * [TAMBAHKAN] Mengambil semua data pengawas (supervisory positions).
+   * Endpoint: GET /supervisory-positions
+   */
+  getAllSupervisoryPositions: (): Promise<SupervisoryPosition[]> => {
+    return handleRequest(api.get<SupervisoryPosition[]>('/supervisory-positions'));
+  },
 
 
-  /**
-   * Mengambil semua data anggota.
-   * Endpoint: GET /admin/members (Contoh)
-   */
-    getAllMembers: (): Promise<MemberWithRole[]> => {
-        return handleRequest(api.get<MemberWithRole[]>('/members'));
+
+
+    /**
+     * Mengambil semua data anggota.
+     * Endpoint: GET /members
+     */
+    getAllMembers: (): Promise<MemberWithRole[]> => { // <-- PASTIKAN TIPE INI BENAR
+        return handleRequest(api.get<MemberWithRole[]>('/members')); 
     },
+
 
   searchMembers: (searchTerm: string): Promise<MemberSearchResult[]> => {
     // Pastikan endpoint '/members' dan query param 'search' benar
@@ -315,10 +377,10 @@ export const adminService = {
    * Mengupdate data anggota.
    * Endpoint: PUT /admin/members/:id (Contoh)
    */
-  updateMember: (id: string, dto: UpdateMemberDto): Promise<Member> => {
-    // Sesuaikan endpoint jika berbeda
-    return handleRequest(api.put<Member>(`/members/${id}`, dto));
-  },
+    updateMember: (id: string, dto: UpdateMemberDto): Promise<Member> => {
+        // Sesuaikan endpoint jika berbeda
+      return handleRequest(api.put<Member>(`/members/${id}`, dto)); // <-- PROBLEM HERE
+    },
 
   /**
    * Menghapus data anggota.
@@ -329,6 +391,22 @@ export const adminService = {
     // Sesuaikan endpoint jika berbeda
     return handleRequest(api.delete<{ message: string }>(`/members/${id}`));
   },
+
+  /**
+   * DELETE /members/:id
+   * swagger: “Menonaktifkan keanggotaan (soft delete)”
+   */
+  deactivateMember: (id: string, exitReason: string): Promise<{ message: string }> => {
+    // kalau backend kamu nggak butuh body → hapus { data: ... } nya
+    return handleRequest(
+      api.delete<{ message: string }>(`/members/${id}`, {
+        data: { exitReason },
+      }),
+    );
+  },
+
+
+
 
   /**
    * Mengambil daftar pendaftaran anggota yang pending
