@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export function middleware(req: NextRequest) {
-  const { pathname, searchParams } = req.nextUrl;
+  const { pathname } = req.nextUrl;
 
   // Hanya guard untuk area admin
   if (!pathname.startsWith('/dashboard/admin')) {
@@ -20,10 +20,19 @@ export function middleware(req: NextRequest) {
   const isAdminRoot = pathname === '/dashboard/admin';
   const isSimpanan = pathname.startsWith('/dashboard/admin/simpanan-anggota');
   const isPinjaman = pathname.startsWith('/dashboard/admin/pinjaman-anggota');
+  const isInventaris = pathname.startsWith('/dashboard/admin/daftar-inventaris');
+  const isKatalog = pathname.startsWith('/dashboard/admin/website/katalog');
+  const isPengaturan = pathname.startsWith('/dashboard/admin/sistem/pengaturan');
 
-  // Pengurus Bendahara: hanya tiga lokasi yang diizinkan
+  // Pengurus Bendahara: izinkan Simpanan, Pinjaman, Inventaris, Katalog, Pengaturan, dan root admin
   if (role === 'Pengurus' && isBendahara) {
-    const allowed = isAdminRoot || isSimpanan || isPinjaman;
+    const allowed =
+      isAdminRoot ||
+      isSimpanan ||
+      isPinjaman ||
+      isInventaris ||
+      isKatalog ||
+      isPengaturan;
     if (!allowed) {
       const url = req.nextUrl.clone();
       url.pathname = '/dashboard/admin';

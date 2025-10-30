@@ -12,7 +12,7 @@ import { Role } from "@/types/enums";
 import { useAuthSync } from '@/lib/hooks/useAuthSync';
 import { adminService } from '@/services/admin.service';
 import type { BoardMember } from '@/services/admin.service';
-import { toast, ToastContainer } from 'react-toastify'; // Import ToastContainer if not already in RootLayout
+import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css'; // Import CSS if needed here
 
 // Impor ikon loading jika perlu, atau gunakan teks/spinner sederhana
@@ -27,7 +27,7 @@ export default function AdminDashboardLayout({
   const [userData, setUserData] = useState<JwtPayload | null>(null);
   const [activeJabatans, setActiveJabatans] = useState<string[]>([]);
   // --- State Loading Baru ---
-  const [isDataLoading, setIsDataLoading] = useState(true); // Mulai dengan true
+  // Hilangkan state loading agar UI tidak terblokir saat refresh
   // -------------------------
   const router = useRouter();
   const pathname = usePathname();
@@ -35,8 +35,7 @@ export default function AdminDashboardLayout({
   useAuthSync();
 
   useEffect(() => {
-    // Set loading true di awal fetch
-    setIsDataLoading(true);
+    // Tidak gunakan loading blocking; biarkan UI render sambil fetch
     setActiveJabatans([]); // Reset jabatans
     setUserData(null); // Reset user data
 
@@ -89,11 +88,11 @@ export default function AdminDashboardLayout({
             // --- Set state HANYA setelah semua data (profile & jabatans) siap ---
             setUserData(profile);
             setActiveJabatans(jabatans);
-            setIsDataLoading(false); // Selesai loading HANYA jika berhasil
+            // Tidak memblokir UI; state sudah terisi
             // -----------------------------------------------------------------
         } else {
              // Kasus aneh, profil null tapi tidak logout? Mungkin redirect?
-             setIsDataLoading(false); // Atau redirect ke login
+             // Tidak memblokir UI; lakukan redirect
              router.push("/auth/login");
         }
       }
@@ -118,17 +117,7 @@ export default function AdminDashboardLayout({
     }
   }, [pathname]);
 
-  // --- Tampilkan Loading Indicator Selama Data Dimuat ---
-  if (isDataLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-gray-100 text-gray-600">
-        {/* Anda bisa mengganti teks ini dengan spinner atau komponen loading yang lebih baik */}
-        {/* <Loader2 className="animate-spin h-8 w-8 mr-3" /> */}
-        Memuat data pengguna...
-      </div>
-    );
-  }
-  // -------------------------------------------------------
+  // Tidak menampilkan overlay loading; render langsung
 
   // Jika sudah tidak loading dan ada userData (validasi role sudah di useEffect)
   return (
