@@ -27,6 +27,8 @@ async function handleRequest<T>(request: Promise<{ data: T }>): Promise<T> {
 }
 
 export const authService = {
+
+  
   /**
    * Login pengguna dan simpan token.
    */
@@ -60,6 +62,8 @@ export const authService = {
     } catch {}
     window.location.href = '/auth/login';
   },
+
+
 };
 
 export const publicService = {

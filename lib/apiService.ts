@@ -54,7 +54,7 @@ export type Member = {
   occupation: string;
   address: string;
   joinDate: string;
-  status: string;
+  status: string; // 'ACTIVE', 'INACTIVE', dll.
   createdAt: string;
   updatedAt: string;
 };
