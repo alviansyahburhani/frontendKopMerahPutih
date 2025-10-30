@@ -7,14 +7,14 @@ import AdminSidebar from "@/components/AdminSidebar";
 import AdminHeader from "@/components/AdminHeader";
 import { authService } from "@/services/auth.service";
 import { tokenStorage } from "@/lib/token";
-// --- PERBAIKI IMPORT DI SINI ---
-import { JwtPayload, ApiErrorResponse } from "@/types/api.types"; // Hapus Role dari sini
-import { Role } from "@/types/enums"; // <-- Import Role dari enums.ts
-// --- SELESAI PERBAIKAN IMPORT ---
+import { JwtPayload, ApiErrorResponse } from "@/types/api.types";
+import { Role } from "@/types/enums";
 import { useAuthSync } from '@/lib/hooks/useAuthSync';
 import { adminService } from '@/services/admin.service';
 import type { BoardMember } from '@/services/admin.service';
 import { toast } from 'react-toastify';
+// Impor ikon loading jika perlu, atau gunakan teks/spinner sederhana
+// import { Loader2 } from "lucide-react";
 
 export default function AdminDashboardLayout({
   children,
@@ -23,98 +23,89 @@ export default function AdminDashboardLayout({
 }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [userData, setUserData] = useState<JwtPayload | null>(null);
-  const [isBendahara, setIsBendahara] = useState<boolean>(false);
+  const [activeJabatans, setActiveJabatans] = useState<string[]>([]);
+  // --- State Loading Baru ---
+  const [isDataLoading, setIsDataLoading] = useState(true); // Mulai dengan true
+  // -------------------------
   const router = useRouter();
   const pathname = usePathname();
-  
 
   useAuthSync();
 
   useEffect(() => {
+    // Set loading true di awal fetch
+    setIsDataLoading(true);
+    setActiveJabatans([]); // Reset jabatans
+    setUserData(null); // Reset user data
+
     const token = tokenStorage.getAccessToken();
     if (!token) {
       router.push("/auth/login");
+      // Tidak perlu set loading false karena sudah redirect
       return;
     }
 
-    const fetchProfile = async () => {
+    const fetchProfileAndPositions = async () => {
+      let profile: JwtPayload | null = null;
+      let jabatans: string[] = [];
+      let shouldLogout = false;
+
       try {
-        const profile = await authService.getProfile();
-        // --- ERROR 'Cannot find name Role' AKAN HILANG SETELAH IMPORT DIPERBAIKI ---
+        profile = await authService.getProfile();
         if (profile.role !== Role.Pengurus && profile.role !== Role.Pengawas) {
            console.warn(`Akses ditolak: Pengguna ${profile.email} (${profile.role}) mencoba mengakses dashboard admin.`);
-           authService.logout();
-           return;
-        }
-        setUserData(profile);
-
-        // Jika Pengurus, cek jabatan aktifnya
-        if (profile.role === Role.Pengurus) {
-          try {
-            const positions: BoardMember[] = await adminService.getMyActiveBoardPositions();
-            const bendahara = positions?.some((p) => p.jabatan === 'Bendahara');
-            setIsBendahara(!!bendahara);
-            // Set cookie hints untuk middleware
-            document.cookie = `role=${profile.role}; Path=/; SameSite=Lax; Max-Age=1800`;
-            document.cookie = `isBendahara=${bendahara ? '1' : '0'}; Path=/; SameSite=Lax; Max-Age=1800`;
-          } catch (e) {
-            console.warn('Gagal memuat jabatan aktif pengurus. Mengasumsikan bukan Bendahara.', e);
-            setIsBendahara(false);
-            document.cookie = `role=${profile.role}; Path=/; SameSite=Lax; Max-Age=1800`;
-            document.cookie = `isBendahara=0; Path=/; SameSite=Lax; Max-Age=600`;
-          }
+           shouldLogout = true; // Tandai untuk logout
         } else {
-          setIsBendahara(false);
-          // Pengawas atau lainnya
-          document.cookie = `role=${profile.role}; Path=/; SameSite=Lax; Max-Age=1800`;
-          document.cookie = `isBendahara=0; Path=/; SameSite=Lax; Max-Age=1800`;
+            // Hanya fetch jabatan jika Pengurus
+            if (profile.role === Role.Pengurus) {
+                try {
+                    const positions: BoardMember[] = await adminService.getMyActiveBoardPositions();
+                    jabatans = positions.map(p => p.jabatan);
+                    // Set cookie hint (opsional, tergantung middleware)
+                    const isCurrentlyBendahara = jabatans.includes('Bendahara');
+                    document.cookie = `isBendahara=${isCurrentlyBendahara ? '1' : '0'}; Path=/; SameSite=Lax; Max-Age=1800`;
+                } catch (e) {
+                    console.warn('Gagal memuat jabatan aktif pengurus.', e);
+                    // Tetap lanjutkan meskipun jabatan gagal, mungkin tampilkan menu default
+                    jabatans = [];
+                    document.cookie = `isBendahara=0; Path=/; SameSite=Lax; Max-Age=600`;
+                }
+            }
+             // Set cookie role (setelah role diverifikasi)
+             document.cookie = `role=${profile.role}; Path=/; SameSite=Lax; Max-Age=1800`;
         }
+
       } catch (err) {
         const error = err as ApiErrorResponse;
         console.error("Gagal memuat profil admin:", error.message);
-        authService.logout();
+        shouldLogout = true; // Logout jika gagal fetch profil
       } finally {
-        // no-op
+        if (shouldLogout) {
+            authService.logout();
+            // Loading tidak perlu di-set false karena sudah redirect/logout
+        } else if (profile) {
+            // --- Set state HANYA setelah semua data (profile & jabatans) siap ---
+            setUserData(profile);
+            setActiveJabatans(jabatans);
+            setIsDataLoading(false); // Selesai loading HANYA jika berhasil
+            // -----------------------------------------------------------------
+        } else {
+             // Kasus aneh, profil null tapi tidak logout? Mungkin redirect?
+             setIsDataLoading(false); // Atau redirect ke login
+             router.push("/auth/login");
+        }
       }
     };
 
-    fetchProfile().catch(console.error);
+    fetchProfileAndPositions().catch(console.error);
 
-  }, [router]);
+  }, [router, pathname]); // Tambahkan pathname agar re-fetch jika URL berubah signifikan (opsional)
 
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
 
-  // Route guard berbasis jabatan Bendahara
-  useEffect(() => {
-    if (!userData) return;
-    const isAdminRoot = pathname === '/dashboard/admin';
-    const isSimpanan = pathname?.startsWith('/dashboard/admin/simpanan-anggota');
-    const isPinjaman = pathname?.startsWith('/dashboard/admin/pinjaman-anggota');
-
-    if (userData.role === Role.Pengurus) {
-      if (isBendahara) {
-        // Bendahara: hanya boleh dashboard, simpanan, pinjaman
-        const allowed = isAdminRoot || isSimpanan || isPinjaman;
-        if (!allowed) {
-          router.replace('/dashboard/admin');
-        }
-      } else {
-        // Pengurus lain: tidak boleh membuka simpanan/pinjaman
-        if (isSimpanan || isPinjaman) {
-          router.replace('/dashboard/admin');
-        }
-      }
-    } else if (userData.role === Role.Pengawas) {
-      // Pengawas: tidak boleh simpanan/pinjaman (sesuai permintaan fokus Bendahara)
-      if (isSimpanan || isPinjaman) {
-        router.replace('/dashboard/admin');
-      }
-    }
-  }, [userData, isBendahara, pathname, router]);
-
-  // Tampilkan notifikasi jika diarahkan dengan ?denied=1 lalu bersihkan query
+  // Tampilkan notifikasi jika diarahkan dengan ?denied=1
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const url = new URL(window.location.href);
@@ -125,23 +116,30 @@ export default function AdminDashboardLayout({
     }
   }, [pathname]);
 
-  // --- ERROR 'Cannot find name Role' AKAN HILANG SETELAH IMPORT DIPERBAIKI ---
-   if (!userData || (userData.role !== Role.Pengurus && userData.role !== Role.Pengawas)) {
-      return null;
-   }
+  // --- Tampilkan Loading Indicator Selama Data Dimuat ---
+  if (isDataLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-100 text-gray-600">
+        {/* <Loader2 className="animate-spin h-8 w-8 mr-3" /> */}
+        Memuat data pengguna...
+      </div>
+    );
+  }
+  // -------------------------------------------------------
 
+  // Jika sudah tidak loading dan ada userData (validasi role sudah di useEffect)
   return (
     <div className="flex min-h-screen bg-gray-100">
       <AdminSidebar
         isSidebarOpen={isSidebarOpen}
         toggleSidebar={toggleSidebar}
-        userData={userData} // <-- Kirim prop userData
-        isBendahara={isBendahara}
+        userData={userData} // userData pasti sudah ada di sini
+        activeJabatans={activeJabatans} // activeJabatans juga sudah siap
       />
       <div className="flex-1 flex flex-col">
         <AdminHeader
           toggleSidebar={toggleSidebar}
-          userData={userData} // <-- Kirim prop userData
+          userData={userData}
         />
         <main className="flex-1 p-6 md:p-8 overflow-y-auto">
           {children}
@@ -150,3 +148,4 @@ export default function AdminDashboardLayout({
     </div>
   );
 }
+

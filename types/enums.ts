@@ -18,5 +18,11 @@ export enum Role {
   Pengawas = 'Pengawas',
 }
 
-// Catatan: SUPERADMIN adalah role di luar skema tenant,
-// jadi tidak kita masukkan ke enum Role tenant ini.
+/**
+ * BARU! WAJIB Sesuai dengan backend/src/auth/enums/jabatan-pengurus.enum.ts
+ */
+export enum JabatanPengurus {
+  KETUA = 'Ketua',
+  SEKRETARIS = 'Sekretaris',
+  BENDAHARA = 'Bendahara',
+}
