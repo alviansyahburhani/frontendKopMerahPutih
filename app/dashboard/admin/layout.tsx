@@ -12,7 +12,9 @@ import { Role } from "@/types/enums";
 import { useAuthSync } from '@/lib/hooks/useAuthSync';
 import { adminService } from '@/services/admin.service';
 import type { BoardMember } from '@/services/admin.service';
-import { toast } from 'react-toastify';
+import { toast, ToastContainer } from 'react-toastify'; // Import ToastContainer if not already in RootLayout
+import 'react-toastify/dist/ReactToastify.css'; // Import CSS if needed here
+
 // Impor ikon loading jika perlu, atau gunakan teks/spinner sederhana
 // import { Loader2 } from "lucide-react";
 
@@ -120,6 +122,7 @@ export default function AdminDashboardLayout({
   if (isDataLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-100 text-gray-600">
+        {/* Anda bisa mengganti teks ini dengan spinner atau komponen loading yang lebih baik */}
         {/* <Loader2 className="animate-spin h-8 w-8 mr-3" /> */}
         Memuat data pengguna...
       </div>
@@ -130,6 +133,8 @@ export default function AdminDashboardLayout({
   // Jika sudah tidak loading dan ada userData (validasi role sudah di useEffect)
   return (
     <div className="flex min-h-screen bg-gray-100">
+       {/* Pastikan ToastContainer ada di sini atau di RootLayout */}
+       {/* <ToastContainer position="top-right" autoClose={3000} /> */}
       <AdminSidebar
         isSidebarOpen={isSidebarOpen}
         toggleSidebar={toggleSidebar}
