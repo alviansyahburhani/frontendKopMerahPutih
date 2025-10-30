@@ -41,7 +41,10 @@ type Props = {
 ========================= */
 const dashboardItem: NavItem = { href: "/dashboard/admin", label: "Dashboard", icon: LayoutGrid };
 
+<<<<<<< HEAD
 // Definisikan SEMUA kemungkinan menu di sini
+=======
+>>>>>>> b12d78b4a137ecc94bfe9d45fba3995fb5a58bfe
 const bukuKoperasiGroups: NavGroup[] = [
   {
     title: "Manajemen Utama",
@@ -97,26 +100,46 @@ const aplikasiGroups: NavGroup[] = [
 ];
 
 /* =========================
+<<<<<<< HEAD
    Mapping Hak Akses Jabatan (DIPERBARUI SESUAI PERMINTAAN)
 ========================= */
 const JABATAN_MENU_MAP: Record<string, string[]> = {
   'ketua': [
+=======
+   Mapping Hak Akses Jabatan
+========================= */
+const JABATAN_MENU_MAP: Record<string, string[]> = {
+  'ketua': [ // <-- HAK AKSES KETUA DIPERBARUI
+>>>>>>> b12d78b4a137ecc94bfe9d45fba3995fb5a58bfe
     // Manajemen Utama
     '/dashboard/admin/persetujuan-anggota', '/dashboard/admin/daftar-anggota',
     '/dashboard/admin/daftar-pengurus', '/dashboard/admin/daftar-pengawas',
     '/dashboard/admin/daftar-karyawan',
+<<<<<<< HEAD
     // Administrasi (Menghapus inventaris, notulen anggota/pengawas, catatan kejadian)
     '/dashboard/admin/buku-tamu',
     '/dashboard/admin/notulen-rapat-pengurus',
     '/dashboard/admin/saran-anggota', '/dashboard/admin/saran-pengawas',
     '/dashboard/admin/anjuran-pejabat', '/dashboard/admin/agenda-ekspedisi',
     // Website (Menghapus katalog)
+=======
+    // Administrasi (Daftar Inventaris, Notulen Anggota/Pengawas, Catatan Kejadian DIHAPUS)
+    '/dashboard/admin/buku-tamu',
+    '/dashboard/admin/notulen-rapat-pengurus', // Hanya notulen pengurus
+    '/dashboard/admin/saran-anggota', '/dashboard/admin/saran-pengawas',
+    '/dashboard/admin/anjuran-pejabat', '/dashboard/admin/agenda-ekspedisi',
+    // Website (Katalog Produk DIHAPUS)
+>>>>>>> b12d78b4a137ecc94bfe9d45fba3995fb5a58bfe
     '/dashboard/admin/website/berita',
     '/dashboard/admin/website/galeri', '/dashboard/admin/website/kontak',
     // Sistem (Semua)
     '/dashboard/admin/sistem/log-audit', '/dashboard/admin/sistem/pengaturan',
   ],
+<<<<<<< HEAD
   'sekretaris': [ // (Sudah sesuai permintaan sebelumnya)
+=======
+  'sekretaris': [ // <-- HAK AKSES SEKRETARIS DIPERBARUI (sama seperti sebelumnya karena sudah sesuai)
+>>>>>>> b12d78b4a137ecc94bfe9d45fba3995fb5a58bfe
     // Manajemen Utama
     '/dashboard/admin/daftar-anggota', '/dashboard/admin/daftar-karyawan',
     // Administrasi
@@ -134,7 +157,11 @@ const JABATAN_MENU_MAP: Record<string, string[]> = {
     '/dashboard/admin/sistem/log-audit',
     '/dashboard/admin/sistem/pengaturan',
   ],
+<<<<<<< HEAD
   'bendahara': [ // (Tidak berubah)
+=======
+  'bendahara': [ // <-- Hak akses Bendahara (tidak berubah)
+>>>>>>> b12d78b4a137ecc94bfe9d45fba3995fb5a58bfe
     // Keuangan
     '/dashboard/admin/simpanan-anggota', '/dashboard/admin/pinjaman-anggota',
     // Administrasi
@@ -161,7 +188,10 @@ const PENGAWAS_MENUS: string[] = [
    '/dashboard/admin/sistem/pengaturan',
 ];
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> b12d78b4a137ecc94bfe9d45fba3995fb5a58bfe
 /* =========================
    Komponen NavLink (memoized)
 ========================= */
@@ -192,7 +222,11 @@ const NavLink = memo(function NavLink({
     </Link>
   );
 });
+<<<<<<< HEAD
 NavLink.displayName = "NavLink"; // Tambahkan display name
+=======
+NavLink.displayName = "NavLink";
+>>>>>>> b12d78b4a137ecc94bfe9d45fba3995fb5a58bfe
 
 /* =========================
    Sidebar
@@ -201,7 +235,11 @@ export default function AdminSidebar({
   isSidebarOpen,
   toggleSidebar,
   userData,
+<<<<<<< HEAD
   activeJabatans = [], // Default array kosong
+=======
+  activeJabatans = [],
+>>>>>>> b12d78b4a137ecc94bfe9d45fba3995fb5a58bfe
 }: Props) {
   const pathname = usePathname();
 
