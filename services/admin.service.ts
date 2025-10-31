@@ -75,28 +75,42 @@ export interface User {
   member?: { fullName: string };
 }
 
-// [TAMBAHKAN] Interface untuk data Pengawas (Buku 03)
 export interface SupervisoryPosition {
-  id: string; // ID dari tabel supervisory_positions
-  jabatan: string; // 'Ketua Pengawas', 'Anggota Pengawas', dll.
-  tanggalDiangkat: string; // ISO Date string
-  tanggalBerhenti?: string | null; // ISO Date string or null
-  alasanBerhenti?: string | null;
-  memberId: string; // ID Anggota
-  // Data dari relasi 'member'
-  member: {
-    id: string;
-    memberNumber?: string;
-    fullName: string;
-    occupation?: string;
-    address?: string;
-    gender?: Gender;
-    placeOfBirth?: string;
-    dateOfBirth?: string; // ISO Date string
-  };
-  createdAt: string;
-  updatedAt: string;
-}
+    id: string; // ID dari tabel supervisory_positions
+    jabatan: string; // 'Ketua Pengawas', 'Anggota Pengawas', dll.
+    tanggalDiangkat: string; // ISO Date string
+    tanggalBerhenti?: string | null; // ISO Date string or null
+    alasanBerhenti?: string | null;
+    memberId: string; // ID Anggota
+    // Data dari relasi 'member' (bisa jadi tidak di-include di semua call)
+    member?: {
+      id: string;
+      memberNumber?: string;
+      fullName: string;
+      occupation?: string;
+      address?: string;
+      gender?: Gender;
+      placeOfBirth?: string;
+      dateOfBirth?: string; // ISO Date string
+    };
+    createdAt: string;
+    updatedAt: string;
+  }
+  
+  // [TAMBAHKAN] DTO untuk membuat Pengawas baru
+  export interface CreateSupervisoryPositionDto {
+    memberId: string;
+    jabatan: string;
+    tanggalDiangkat: string; // Format YYYY-MM-DD
+  }
+  
+  // [TAMBAHKAN] DTO untuk update Pengawas
+  export interface UpdateSupervisoryPositionDto {
+    jabatan?: string;
+    tanggalDiangkat?: string; // YYYY-MM-DD
+    tanggalBerhenti?: string | null; // YYYY-MM-DD atau null
+    alasanBerhenti?: string | null;
+  }
 
 
 // DTO untuk membuat anggota (sesuaikan dengan backend)
@@ -337,13 +351,38 @@ export const adminService = {
     return handleRequest(api.delete<{ message: string }>(`/board-positions/${id}`));
   },
 
-  /**
-   * [TAMBAHKAN] Mengambil semua data pengawas (supervisory positions).
+/**
+   * [SUDAH ADA] Mengambil semua data pengawas (supervisory positions).
    * Endpoint: GET /supervisory-positions
    */
-  getAllSupervisoryPositions: (): Promise<SupervisoryPosition[]> => {
-    return handleRequest(api.get<SupervisoryPosition[]>('/supervisory-positions'));
-  },
+getAllSupervisoryPositions: (): Promise<SupervisoryPosition[]> => {
+  return handleRequest(api.get<SupervisoryPosition[]>('/supervisory-positions'));
+},
+
+/**
+ * [TAMBAHKAN] Menambah pengawas baru.
+ * Endpoint: POST /supervisory-positions
+ */
+createSupervisoryPosition: (dto: CreateSupervisoryPositionDto): Promise<SupervisoryPosition> => {
+  return handleRequest(api.post<SupervisoryPosition>('/supervisory-positions', dto));
+},
+
+/**
+ * [TAMBAHKAN] Mengupdate data pengawas (termasuk pemberhentian).
+ * Endpoint: PATCH /supervisory-positions/:id
+ */
+updateSupervisoryPosition: (id: string, dto: UpdateSupervisoryPositionDto): Promise<SupervisoryPosition> => {
+  return handleRequest(api.patch<SupervisoryPosition>(`/supervisory-positions/${id}`, dto));
+},
+
+/**
+ * [TAMBAHKAN] Memberhentikan pengawas (soft delete via service).
+ * Endpoint: DELETE /supervisory-positions/:id
+ * (Asumsi backend menangani logika soft delete saat di-DELETE)
+ */
+terminateSupervisoryPosition: (id: string): Promise<{ message: string }> => {
+  return handleRequest(api.delete<{ message: string }>(`/supervisory-positions/${id}`));
+},
 
 
 
