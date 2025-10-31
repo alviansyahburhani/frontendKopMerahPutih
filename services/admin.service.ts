@@ -10,6 +10,17 @@ export interface TenantInfo {
   // Tambahkan field lain jika perlu
 }
 
+//BUKU TAMU
+export interface GuestBookMessage {
+  id: string;
+  tanggal: string; // atau createdAt (pastikan disesuaikan)
+  nama: string; // atau guestName
+  asal: 'Anggota' | 'Tamu Publik'; // atau origin
+  pesan: string; // atau purpose
+  status: 'Baru' | 'Sudah Ditanggapi';
+  // tambahkan field lain jika ada (meetWith, signatureUrl, dll)
+}
+
 export interface Member {
   id: string; // ID unik dari database
   memberNumber?: string; // Nomor keanggotaan (jika ada)
@@ -244,6 +255,10 @@ export type PendingRegistration = Omit<MemberRegistration, 'hashedPassword'>;
 
 export const adminService = {
 
+  
+
+  
+
   /**
    * BARU: Membuat entitas User (akun login) untuk Anggota.
    * Endpoint: POST /users
@@ -252,6 +267,8 @@ export const adminService = {
     // Pastikan endpoint '/users' ini BENAR
     return handleRequest(api.post<User>('/users', dto));
   },
+
+  
 
 
   /**
@@ -480,4 +497,30 @@ terminateSupervisoryPosition: (id: string): Promise<{ message: string }> => {
       }),
     );
   },
+/**
+   * Mengambil semua pesan buku tamu (Hak Akses: Pengurus, Anggota)
+   * Endpoint: GET /guest-book
+   */
+getGuestBookEntries: (): Promise<GuestBookMessage[]> => {
+  return handleRequest(api.get<GuestBookMessage[]>('/guest-book'));
+},
+
+/**
+ * Mengubah status pesan (Hak Akses: Pengurus)
+ * Endpoint: PATCH /guest-book/:id
+ */
+updateGuestBookStatus: (id: string, status: 'Baru' | 'Sudah Ditanggapi'): Promise<GuestBookMessage> => {
+  // Backend mungkin mengharapkan DTO, misal: UpdateGuestBookDto
+  return handleRequest(api.patch<GuestBookMessage>(`/guest-book/${id}`, { status }));
+},
+
+/**
+ * Menghapus pesan buku tamu (Hak Akses: Pengurus)
+ * Endpoint: DELETE /guest-book/:id
+ */
+deleteGuestBookEntry: (id: string): Promise<{ message: string }> => {
+  return handleRequest(api.delete<{ message: string }>(`/guest-book/${id}`));
+}
+
+
 };
