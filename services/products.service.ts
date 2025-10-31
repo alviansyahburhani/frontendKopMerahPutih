@@ -1,7 +1,10 @@
 import { Product, CreateProductData, UpdateProductData } from "@/types/product";
 
-// Define backend API base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
+// Resolve backend API base URL (prefer the shared axios base env key for consistency)
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://localhost:3002";
 
 export interface PaginatedProducts {
   data: Product[];

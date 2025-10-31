@@ -30,6 +30,10 @@ const mockInventaris: Inventaris[] = [
 
 // --- Tipe untuk Form ---
 type InventarisFormData = Omit<Inventaris, 'id'>;
+type InventarisFormState = Omit<InventarisFormData, 'jumlah' | 'nilaiPerolehan'> & {
+    jumlah: number | '';
+    nilaiPerolehan: number | '';
+};
 
 // ===================================================================
 // KOMPONEN MODAL (Wrapper untuk Form Tambah & Edit)
@@ -42,21 +46,41 @@ const InventarisModal = ({ isOpen, onClose, onSubmit, title, submitText, initial
     submitText: string,
     initialData: InventarisFormData | null
 }) => {
-    const [formData, setFormData] = useState<InventarisFormData | null>(null);
+    const [formData, setFormData] = useState<InventarisFormState | null>(null);
+
+    const mapToFormState = (data: InventarisFormData | null): InventarisFormState | null => {
+        if (!data) return null;
+        return {
+            ...data,
+            jumlah: data.jumlah,
+            nilaiPerolehan: data.nilaiPerolehan,
+        };
+    };
 
     useEffect(() => {
-        setFormData(initialData);
+        setFormData(mapToFormState(initialData));
     }, [initialData]);
 
     const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         if (!formData) return;
         const { name, value, type } = e.target;
-        setFormData({ ...formData, [name]: type === 'number' ? parseFloat(value) || 0 : value });
+        if (type === 'number') {
+            setFormData({ ...formData, [name]: value === '' ? '' : Number(value) });
+        } else {
+            setFormData({ ...formData, [name]: value });
+        }
     };
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
-        if (formData) onSubmit(formData);
+        if (formData) {
+            const payload: InventarisFormData = {
+                ...formData,
+                jumlah: formData.jumlah === '' ? 0 : Number(formData.jumlah),
+                nilaiPerolehan: formData.nilaiPerolehan === '' ? 0 : Number(formData.nilaiPerolehan),
+            };
+            onSubmit(payload);
+        }
         onClose();
     };
 
