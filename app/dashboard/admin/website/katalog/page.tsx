@@ -7,25 +7,9 @@ import Button from "@/components/Button";
 import { PlusCircle, Search, Edit, Trash2, X, Tag, EyeOff } from "lucide-react";
 import Image from "next/image";
 import clsx from "clsx";
-
-// --- Tipe Data ---
-type Produk = {
-  id: string;
-  nama: string;
-  kategori: 'Sembako' | 'Elektronik' | 'Jasa' | 'Lainnya';
-  harga: number;
-  status: 'Tersedia' | 'Habis';
-  imageUrl: string;
-};
-
-// --- Data Contoh ---
-const mockProduk: Produk[] = [
-  { id: 'prod001', nama: 'Beras Premium 5kg', kategori: 'Sembako', harga: 65000, status: 'Tersedia', imageUrl: 'https://cdn.pixabay.com/photo/2016/09/04/13/49/rice-1644148_640.jpg' },
-  { id: 'prod002', nama: 'Minyak Goreng Sania 2L', kategori: 'Sembako', harga: 32000, status: 'Tersedia', imageUrl: 'https://cdn.pixabay.com/photo/2016/09/01/14/56/olive-oil-1636220_640.jpg' },
-  { id: 'prod003', nama: 'Jasa Pembayaran Listrik & PDAM', kategori: 'Jasa', harga: 2500, status: 'Tersedia', imageUrl: 'https://cdn.pixabay.com/photo/2017/08/26/17/23/indonesia-2684533_640.jpg' },
-  { id: 'prod004', nama: 'Televisi LED 32 inch', kategori: 'Elektronik', harga: 1850000, status: 'Habis', imageUrl: 'https://cdn.pixabay.com/photo/2014/01/17/21/28/tv-246920_640.jpg' },
-  { id: 'prod005', nama: 'Gula Pasir 1kg', kategori: 'Sembako', harga: 14000, status: 'Tersedia', imageUrl: 'https://cdn.pixabay.com/photo/2017/01/06/16/43/sugar-1958469_640.jpg' },
-];
+import { productsService } from "@/services/products.service";
+import { Product, ProductCategory, CreateProductData, UpdateProductData } from "@/types/product";
+import ProductFormModal from "@/components/ProductFormModal";
 
 export default function ManajemenKatalogPage() {
   const [filters, setFilters] = useState({
@@ -33,17 +17,67 @@ export default function ManajemenKatalogPage() {
     kategori: '',
     status: '',
   });
-  const [produkList, setProdukList] = useState<Produk[]>([]);
+  const [produkList, setProdukList] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
+  const [error, setError] = useState('');
 
-  // Simulate loading data
+  // Fetch products from the backend
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setProdukList(mockProduk);
-      setLoading(false);
-    }, 800);
-    return () => clearTimeout(timer);
-  }, []);
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch all products for admin - with filters based on status
+        let statusFilter: boolean | undefined = undefined;
+        if (filters.status === 'Tersedia') statusFilter = true;
+        else if (filters.status === 'Habis') statusFilter = false;
+        
+        const response = await productsService.getAllProducts(1, 100, filters.kategori || undefined, statusFilter);
+        setProdukList(response.data);
+      } catch (error) {
+        console.error("Error fetching products:", error);
+        setError('Gagal memuat data produk. Silakan coba lagi nanti.');
+        setProdukList([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [filters.kategori, filters.status]);
+
+  // Fetch product categories
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        // For now, we don't have a direct API for categories, 
+        // so we'll extract unique categories from products
+        // In a real scenario, you'd have a specific endpoint for categories
+        const categoriesMap: Record<string, ProductCategory> = {};
+        
+        produkList.forEach(product => {
+          if (!categoriesMap[product.categoryId]) {
+            categoriesMap[product.categoryId] = {
+              id: product.categoryId,
+              name: product.category.name,
+              slug: product.category.slug,
+              createdAt: product.category.createdAt,
+              updatedAt: product.category.updatedAt
+            };
+          }
+        });
+        
+        setCategories(Object.values(categoriesMap));
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+      }
+    };
+
+    fetchCategories();
+  }, [produkList]);
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFilters(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -56,14 +90,76 @@ export default function ManajemenKatalogPage() {
   const filteredProduk = useMemo(() => {
     return produkList.filter(produk => {
       return (
-        produk.nama.toLowerCase().includes(filters.search.toLowerCase()) &&
-        (filters.kategori === '' || produk.kategori === filters.kategori) &&
-        (filters.status === '' || produk.status === filters.status)
+        produk.name.toLowerCase().includes(filters.search.toLowerCase()) &&
+        (filters.kategori === '' || produk.category.slug === filters.kategori.toLowerCase())
       );
     });
   }, [produkList, filters]);
 
-  const handleTambahProduk = () => alert("Membuka form untuk menambah produk baru...");
+  const handleTambahProduk = () => {
+    setSelectedProduct(null);
+    setShowModal(true);
+  };
+
+  const handleEditProduk = (product: Product) => {
+    setSelectedProduct(product);
+    setShowModal(true);
+  };
+
+  const handleDeleteProduk = async (id: string) => {
+    if (!window.confirm('Apakah Anda yakin ingin menghapus produk ini?')) return;
+    
+    try {
+      await productsService.deleteProduct(id);
+      // Refresh the product list
+      const response = await productsService.getAllProducts(1, 100);
+      setProdukList(response.data);
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      setError('Gagal menghapus produk. Silakan coba lagi.');
+    }
+  };
+
+  const handleSubmitProduct = async (productData: CreateProductData | UpdateProductData) => {
+    try {
+      if (selectedProduct) {
+        // Update existing product
+        await productsService.updateProduct(selectedProduct.id, productData as UpdateProductData);
+      } else {
+        // Create new product
+        await productsService.createProduct(productData as CreateProductData);
+      }
+      
+      // Refresh the product list
+      const response = await productsService.getAllProducts(1, 100);
+      setProdukList(response.data);
+    } catch (error) {
+      console.error("Error saving product:", error);
+      throw error; // Re-throw to be handled by the modal
+    }
+  };
+
+  // Map the backend product status to the expected frontend format
+  const getStatusFromAvailability = (isAvailable: boolean) => {
+    return isAvailable ? 'Tersedia' : 'Habis';
+  };
+
+  // Map the backend category name to the expected frontend format
+  const getKategoriFromCategory = (categoryName: string) => {
+    const categoryMap: Record<string, string> = {
+      'Sembako': 'Sembako',
+      'Elektronik': 'Elektronik',
+      'Jasa': 'Jasa',
+      'Lainnya': 'Lainnya',
+    };
+
+    // Look for exact match first, otherwise use the category name as is (in sentence case)
+    const exactMatch = categoryMap[categoryName];
+    if (exactMatch) return exactMatch;
+    
+    // Convert to sentence case if not found in map
+    return categoryName.charAt(0).toUpperCase() + categoryName.slice(1).toLowerCase();
+  };
 
   // Skeleton kecil
   const Skeleton = ({ className = "" }: { className?: string }) => (
@@ -74,7 +170,7 @@ export default function ManajemenKatalogPage() {
     <div>
       <div className="mb-8">
         <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-4 w-96 mt-2" />
+        <div className="h-4 w-96 mt-2" />
       </div>
 
       <div className="bg-white rounded-xl shadow-lg border border-gray-100">
@@ -145,6 +241,13 @@ export default function ManajemenKatalogPage() {
         <div className="p-6">
           <h2 className="text-lg font-bold text-gray-700">Daftar Produk & Jasa</h2>
 
+          {/* Error message */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg">
+              {error}
+            </div>
+          )}
+
           {/* --- Area Filter --- */}
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 my-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
             <div>
@@ -158,10 +261,10 @@ export default function ManajemenKatalogPage() {
               <label htmlFor="kategori" className="block text-sm font-medium text-gray-600 mb-1">Kategori</label>
               <select id="kategori" name="kategori" value={filters.kategori} onChange={handleFilterChange} className="w-full p-2 border rounded-lg">
                 <option value="">Semua</option>
-                <option value="Sembako">Sembako</option>
-                <option value="Elektronik">Elektronik</option>
-                <option value="Jasa">Jasa</option>
-                <option value="Lainnya">Lainnya</option>
+                <option value="sembako">Sembako</option>
+                <option value="elektronik">Elektronik</option>
+                <option value="jasa">Jasa</option>
+                <option value="lainnya">Lainnya</option>
               </select>
             </div>
              <div>
@@ -182,24 +285,46 @@ export default function ManajemenKatalogPage() {
             {filteredProduk.map((produk) => (
               <div key={produk.id} className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm hover:shadow-xl transition-shadow">
                 <div className="relative w-full h-40">
-                  <Image src={produk.imageUrl} alt={produk.nama} layout="fill" objectFit="cover" />
+                  {produk.imageUrl ? (
+                    <Image 
+                      src={produk.imageUrl} 
+                      alt={produk.name} 
+                      fill 
+                      style={{ objectFit: 'cover' }} 
+                      unoptimized // Add this attribute to bypass Next.js Image optimization for external images
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500">No Image</div>
+                  )}
                    <span className={`absolute top-2 right-2 px-2 py-1 text-xs font-semibold rounded-full ${
-                      produk.status === 'Tersedia' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                      getStatusFromAvailability(produk.isAvailable) === 'Tersedia' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                    }`}>
-                      {produk.status}
+                      {getStatusFromAvailability(produk.isAvailable)}
                    </span>
                 </div>
                 <div className="p-4">
-                  <p className="text-xs text-gray-500 flex items-center gap-1"><Tag size={12}/> {produk.kategori}</p>
-                  <h3 className="font-bold text-gray-800 mt-1 truncate">{produk.nama}</h3>
+                  <p className="text-xs text-gray-500 flex items-center gap-1"><Tag size={12}/> {getKategoriFromCategory(produk.category.name)}</p>
+                  <h3 className="font-bold text-gray-800 mt-1 truncate">{produk.name}</h3>
                   <p className="text-lg font-extrabold text-brand-red-600 mt-2">
-                    {produk.kategori === 'Jasa' ? `Biaya Admin: Rp ${produk.harga.toLocaleString('id-ID')}` : `Rp ${produk.harga.toLocaleString('id-ID')}`}
+                    {getKategoriFromCategory(produk.category.name) === 'Jasa' ? `Biaya Admin: Rp ${produk.price.toLocaleString('id-ID')}` : `Rp ${produk.price.toLocaleString('id-ID')}`}
                   </p>
                 </div>
                 <div className="flex justify-end gap-2 border-t p-3 bg-gray-50">
-                    <Button variant="outline" className="text-xs p-2"><Edit size={16}/></Button>
+                    <Button 
+                      variant="outline" 
+                      className="text-xs p-2" 
+                      onClick={() => handleEditProduk(produk)}
+                    >
+                      <Edit size={16}/>
+                    </Button>
                     <Button variant="outline" className="text-xs p-2"><EyeOff size={16}/></Button>
-                    <Button variant="outline" className="text-xs p-2 text-red-600 border-red-200 hover:bg-red-50"><Trash2 size={16}/></Button>
+                    <Button 
+                      variant="outline" 
+                      className="text-xs p-2 text-red-600 border-red-200 hover:bg-red-50"
+                      onClick={() => handleDeleteProduk(produk.id)}
+                    >
+                      <Trash2 size={16}/>
+                    </Button>
                 </div>
               </div>
             ))}
@@ -211,6 +336,15 @@ export default function ManajemenKatalogPage() {
           </div>
         </div>
       </div>
+      
+      {/* Product Form Modal */}
+      <ProductFormModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        onSubmit={handleSubmitProduct}
+        product={selectedProduct}
+        categories={categories}
+      />
     </div>
   );
 }
