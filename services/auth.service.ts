@@ -26,6 +26,14 @@ async function handleRequest<T>(request: Promise<{ data: T }>): Promise<T> {
   }
 }
 
+export interface CreateGuestBookDto {
+  guestName: string;
+  origin: string;      // Asal/Instansi
+  meetWith: string;    // Bertemu siapa
+  purpose: string;     // Keperluan
+  signatureUrl?: string; // Opsional
+}
+
 export const authService = {
 
   
@@ -67,6 +75,12 @@ export const authService = {
 };
 
 export const publicService = {
+
+
+  
+
+
+
   /**
    * Mengunggah satu file.
    * Menggunakan endpoint yang sesuai dari backend.
@@ -78,6 +92,19 @@ export const publicService = {
     // Gunakan 'uploadApi' atau 'api' (interceptor 'api' sudah handle FormData)
     return handleRequest(api.post<UploadResponse>(endpoint, formData));
   },
+
+  
+
+  /**
+   * Mengirimkan entri buku tamu (Akses Publik)
+   * Endpoint: POST /guest-book
+   */
+  submitGuestBookEntry: (dto: CreateGuestBookDto): Promise<{ message: string }> => {
+    // 'message' adalah asumsi respons sukses, sesuaikan jika perlu
+    return handleRequest(api.post<{ message: string }>('/guest-book', dto));
+  },
+
+
 
   /**
    * Mendaftarkan tenant baru.
