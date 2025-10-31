@@ -120,14 +120,21 @@ export default function ManajemenKatalogPage() {
     }
   };
 
-  const handleSubmitProduct = async (productData: CreateProductData | UpdateProductData) => {
+  const handleSubmitProduct = async (productData: CreateProductData | UpdateProductData, imageFile: File | null) => {
     try {
+      let createdOrUpdatedProduct: Product;
+      
       if (selectedProduct) {
         // Update existing product
-        await productsService.updateProduct(selectedProduct.id, productData as UpdateProductData);
+        createdOrUpdatedProduct = await productsService.updateProduct(selectedProduct.id, productData as UpdateProductData);
       } else {
         // Create new product
-        await productsService.createProduct(productData as CreateProductData);
+        createdOrUpdatedProduct = await productsService.createProduct(productData as CreateProductData);
+      }
+      
+      // If there's an image file, upload it
+      if (imageFile) {
+        await productsService.uploadProductImage(createdOrUpdatedProduct.id, imageFile);
       }
       
       // Refresh the product list

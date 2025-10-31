@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
+import Image from 'next/image';
 import Button from './Button';
 import { Product, ProductCategory, CreateProductData } from '@/types/product';
 
 interface ProductFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (productData: CreateProductData) => void;
+  onSubmit: (productData: CreateProductData, imageFile: File | null) => void;
   product?: Product | null;
   categories: ProductCategory[];
 }
@@ -21,12 +22,14 @@ export default function ProductFormModal({
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    price: 0,
+    price: undefined as number | undefined,  // Allow undefined for empty state
     unit: '',
     sku: '',
     isAvailable: true,
     categoryId: ''
   });
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -42,17 +45,20 @@ export default function ProductFormModal({
         isAvailable: product.isAvailable,
         categoryId: product.categoryId
       });
+      setPreviewUrl(product.imageUrl || null);
     } else {
       // Reset form for new product
       setFormData({
         name: '',
         description: '',
-        price: 0,
+        price: undefined,  // Start with undefined instead of 0
         unit: '',
         sku: '',
         isAvailable: true,
         categoryId: categories.length > 0 ? categories[0].id : ''
       });
+      setPreviewUrl(null);
+      setImageFile(null);
     }
   }, [product, categories]);
 
@@ -61,9 +67,20 @@ export default function ProductFormModal({
     setFormData(prev => ({
       ...prev,
       [name]: name === 'price' || name === 'isAvailable' 
-        ? (name === 'isAvailable' ? value === 'true' : Number(value)) 
+        ? (name === 'isAvailable' ? value === 'true' : value === '' ? undefined : Number(value)) 
         : value
     }));
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setImageFile(file);
+      
+      // Create preview URL
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -72,7 +89,12 @@ export default function ProductFormModal({
     setError('');
 
     try {
-      await onSubmit(formData);
+      // Validate required fields
+      if (!formData.name || formData.price === undefined || formData.price < 0 || !formData.categoryId) {
+        throw new Error('Harap isi semua field yang wajib diisi');
+      }
+
+      await onSubmit(formData as CreateProductData, imageFile);
       onClose();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Terjadi kesalahan saat menyimpan produk';
@@ -145,12 +167,13 @@ export default function ProductFormModal({
                 <input
                   type="number"
                   name="price"
-                  value={formData.price}
+                  value={formData.price ?? ''}
                   onChange={handleChange}
                   required
                   min="0"
                   className="w-full p-2 border rounded-lg"
                   disabled={loading}
+                  placeholder="0"
                 />
               </div>
 
@@ -218,6 +241,38 @@ export default function ProductFormModal({
                   <option value="true">Tersedia</option>
                   <option value="false">Habis</option>
                 </select>
+              </div>
+
+              {/* Image Upload */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-600 mb-1">
+                  Gambar Produk
+                </label>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="w-full p-2 border rounded-lg"
+                    disabled={loading}
+                  />
+                </div>
+                
+                {/* Image Preview */}
+                {previewUrl && (
+                  <div className="mt-3">
+                    <p className="text-sm text-gray-600 mb-2">Pratinjau Gambar:</p>
+                    <div className="relative w-32 h-32 border rounded-md overflow-hidden">
+                      <Image 
+                        src={previewUrl} 
+                        alt="Preview" 
+                        fill
+                        style={{ objectFit: 'cover' }}
+                        unoptimized // Don't optimize local previews
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
