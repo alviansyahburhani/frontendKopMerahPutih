@@ -12,6 +12,7 @@ import {
   FileText,
   User,
 } from "lucide-react";
+import { BookUser } from 'lucide-react';
 import clsx from "clsx";
 import { authService } from "@/services/auth.service";
 import { JwtPayload } from "@/types/api.types"; // <-- 1. Import JwtPayload
@@ -22,8 +23,10 @@ const navLinks = [
   { href: "/dashboard/anggota/simpanan", label: "Simpanan", icon: Landmark },
   { href: "/dashboard/anggota/pinjaman", label: "Pinjaman", icon: HandCoins },
   { href: "/dashboard/anggota/saran", label: "Kirim Saran", icon: MessageSquare },
+  { href: "/dashboard/anggota/buku-tamu", label: "Buku Tamu", icon: BookUser },
   { href: "/dashboard/anggota/notulen", label: "Arsip Notulen", icon: FileText },
   { href: "/dashboard/anggota/profile", label: "Profil Saya", icon: User },
+  
 ];
 
 // 2. Definisikan tipe Props untuk menerima userData

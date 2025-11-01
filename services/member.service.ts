@@ -1,6 +1,7 @@
 // frontend/services/member.service.ts
 import { api, parseApiError } from '@/lib/api';
 import { SimpananSaldo, Loan } from '@/types/api.types';
+import {GuestBookEntry } from '@/types/api.types';
 
 /**
  * Wrapper untuk menangani request dan mengembalikan data atau melempar error yang bersih.
@@ -15,6 +16,18 @@ async function handleRequest<T>(request: Promise<{ data: T }>): Promise<T> {
 }
 
 export const memberService = {
+
+
+
+  /**
+   * [BARU] Mengambil daftar buku tamu (Perlu login Anggota)
+   * Endpoint: GET /guest-book
+   */
+  getGuestBookEntries: (): Promise<GuestBookEntry[]> => {
+    return handleRequest(api.get<GuestBookEntry[]>('/guest-book'));
+  },
+
+
   /**
    * Mengambil saldo simpanan (pokok, wajib, sukarela)
    * untuk anggota yang sedang login.
