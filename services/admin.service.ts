@@ -2,6 +2,10 @@
 import { api, parseApiError } from '@/lib/api';
 import { MemberRegistration } from '@/types/api.types'; // Asumsi Anda punya tipe ini
 import { Gender } from '@/types/enums';
+import {
+  GuestBookEntry,
+  UpdateGuestBookDto,
+} from '@/types/api.types';
 
 export interface TenantInfo {
   cooperativeName: string;
@@ -498,29 +502,32 @@ terminateSupervisoryPosition: (id: string): Promise<{ message: string }> => {
     );
   },
 /**
-   * Mengambil semua pesan buku tamu (Hak Akses: Pengurus, Anggota)
+   * Mengambil daftar buku tamu (Perlu login Admin)
    * Endpoint: GET /guest-book
    */
-getGuestBookEntries: (): Promise<GuestBookMessage[]> => {
-  return handleRequest(api.get<GuestBookMessage[]>('/guest-book'));
-},
+  getGuestBookEntries: (): Promise<GuestBookEntry[]> => {
+    return handleRequest(api.get<GuestBookEntry[]>('/guest-book'));
+  },
 
-/**
- * Mengubah status pesan (Hak Akses: Pengurus)
- * Endpoint: PATCH /guest-book/:id
- */
-updateGuestBookStatus: (id: string, status: 'Baru' | 'Sudah Ditanggapi'): Promise<GuestBookMessage> => {
-  // Backend mungkin mengharapkan DTO, misal: UpdateGuestBookDto
-  return handleRequest(api.patch<GuestBookMessage>(`/guest-book/${id}`, { status }));
-},
+  /**
+   * Mengupdate entri buku tamu (Admin)
+   * Endpoint: PATCH /guest-book/:id
+   */
+  updateGuestBookEntry: (
+    id: string,
+    dto: UpdateGuestBookDto
+  ): Promise<GuestBookEntry> => {
+    // Backend Anda tidak memiliki 'status', jadi kita kirim DTO update standar
+    return handleRequest(api.patch<GuestBookEntry>(`/guest-book/${id}`, dto));
+  },
 
-/**
- * Menghapus pesan buku tamu (Hak Akses: Pengurus)
- * Endpoint: DELETE /guest-book/:id
- */
-deleteGuestBookEntry: (id: string): Promise<{ message: string }> => {
-  return handleRequest(api.delete<{ message: string }>(`/guest-book/${id}`));
-}
+  /**
+   * Menghapus entri buku tamu (Admin)
+   * Endpoint: DELETE /guest-book/:id
+   */
+  deleteGuestBookEntry: (id: string): Promise<void> => {
+    return handleRequest(api.delete<void>(`/guest-book/${id}`));
+  },
 
 
 };

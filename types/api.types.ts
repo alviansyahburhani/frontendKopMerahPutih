@@ -143,3 +143,32 @@ export interface MemberRegistration {
 export interface UploadResponse {
   url: string;
 }
+
+export interface CreateGuestBookDto {
+  guestName: string;
+  origin: string;
+  meetWith?: string;
+  purpose?: string;
+  signatureUrl?: string;
+}
+
+// DTO untuk Edit (PATCH /guest-book/:id)
+export interface UpdateGuestBookDto {
+  guestName?: string;
+  origin?: string;
+  meetWith?: string;
+  purpose?: string;
+  signatureUrl?: string;
+}
+
+// Tipe Data untuk Baca (GET /guest-book)
+export interface GuestBookEntry {
+  id: string;
+  entryNumber: number; // Nomor Urut
+  date: string; // ISO string
+  guestName: string;
+  origin: string;
+  meetWith?: string | null;
+  purpose: string;
+  signatureUrl?: string | null;
+}
