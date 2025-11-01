@@ -14,6 +14,32 @@ export interface TenantInfo {
   // Tambahkan field lain jika perlu
 }
 
+//SARAN ANGGOTA
+// Tipe untuk DTO saat admin menanggapi
+export interface RespondSuggestionDto {
+  response: string;
+}
+
+// Tipe data lengkap untuk Saran Anggota (sesuai backend)
+export interface MemberSuggestionResponse {
+  id: string;
+  suggestion: string;
+  response: string | null; // Tanggapan dari admin
+  createdAt: string; // Tanggal saran dibuat
+  updatedAt: string;
+  member: {
+    // Data pengirim (Anggota)
+    id: string;
+    fullName: string;
+    address: string;
+  };
+  responseByUser: {
+    // Data penanggap (Admin)
+    id: string;
+    fullName: string;
+  } | null;
+}
+
 //BUKU TAMU
 export interface GuestBookMessage {
   id: string;
@@ -528,6 +554,31 @@ terminateSupervisoryPosition: (id: string): Promise<{ message: string }> => {
   deleteGuestBookEntry: (id: string): Promise<void> => {
     return handleRequest(api.delete<void>(`/guest-book/${id}`));
   },
+
+
+  /**
+   * Mengambil semua saran dari anggota (Hak Akses: Pengurus)
+   * Endpoint: GET /member-suggestion
+   */
+  getMemberSuggestions: (): Promise<MemberSuggestionResponse[]> => {
+    return handleRequest(api.get<MemberSuggestionResponse[]>('/member-suggestion'));
+  },
+
+  /**
+   * Mengirim tanggapan untuk sebuah saran (Hak Akses: Pengurus)
+   * Endpoint: POST /member-suggestion/:id/respond
+   */
+  respondToSuggestion: (id: string, dto: RespondSuggestionDto): Promise<MemberSuggestionResponse> => {
+    return handleRequest(api.post<MemberSuggestionResponse>(`/member-suggestion/${id}/respond`, dto));
+  },
+
+  /**
+   * Menghapus saran anggota (Hak Akses: Pengurus)
+   * Endpoint: DELETE /member-suggestion/:id
+   */
+  deleteMemberSuggestion: (id: string): Promise<{ message: string }> => {
+    return handleRequest(api.delete<{ message: string }>(`/member-suggestion/${id}`));
+  }
 
 
 };

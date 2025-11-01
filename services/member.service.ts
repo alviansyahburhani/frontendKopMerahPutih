@@ -15,6 +15,30 @@ async function handleRequest<T>(request: Promise<{ data: T }>): Promise<T> {
   }
 }
 
+// DTO untuk mengirim saran (sesuai backend CreateMemberSuggestionDto)
+export interface SubmitSuggestionDto {
+  suggestion: string;
+  signatureUrl?: string; // Opsional
+}
+
+// Tipe data yang diterima dari GET /member-suggestion
+export interface MemberSuggestionResponse {
+  id: string;
+  suggestion: string;
+  response: string | null;
+  createdAt: string; // Tanggal saran dibuat
+  updatedAt: string;
+  member: {
+    id: string;
+    fullName: string;
+    address: string;
+  };
+  responseByUser: {
+    id: string;
+    fullName: string;
+  } | null;
+}
+
 export const memberService = {
 
 
@@ -45,5 +69,22 @@ export const memberService = {
   getMyLoans: (): Promise<Loan[]> => {
     // Endpoint ini juga otomatis mengambil userId dari token
     return handleRequest(api.get<Loan[]>('/loans/my-loans'));
+  },
+
+
+  /**
+   * Mengirimkan saran baru dari anggota yang login
+   * Endpoint: POST /member-suggestion
+   */
+  submitSuggestion: (dto: SubmitSuggestionDto): Promise<MemberSuggestionResponse> => {
+    return handleRequest(api.post<MemberSuggestionResponse>('/member-suggestion', dto));
+  },
+
+  /**
+   * Mengambil riwayat saran HANYA untuk anggota yang login
+   * Endpoint: GET /member-suggestion
+   */
+  getMySuggestions: (): Promise<MemberSuggestionResponse[]> => {
+    return handleRequest(api.get<MemberSuggestionResponse[]>('/member-suggestion'));
   },
 };
