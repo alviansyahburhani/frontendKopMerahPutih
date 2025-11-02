@@ -9,7 +9,7 @@ import {
   Image as ImageIcon // Ikon baru untuk Galeri (gunakan alias jika nama konflik)
 } from "lucide-react";
 import clsx from "clsx";
-
+import { superAdminAuthService } from '@/services/superAdminAuth.service';
 // Definisikan link navigasi untuk Super Admin
 const navLinks = [
   { href: "/superadmin", label: "Dashboard", icon: LayoutDashboard },
@@ -30,8 +30,8 @@ export default function SuperAdminSidebar({ isSidebarOpen, toggleSidebar }: Prop
   const router = useRouter();
 
   const handleLogout = () => {
-    console.log("Super Admin logout...");
-    router.push('/auth/login');
+    superAdminAuthService.logout();
+    router.replace('/auth/superadmin/login'); 
   };
 
   return (

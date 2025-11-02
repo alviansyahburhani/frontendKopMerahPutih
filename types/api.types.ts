@@ -8,7 +8,30 @@ export interface ApiErrorResponse {
   error: string;
 }
 
+export interface Tenant {
+  id: string;
+  name: string;
+  subdomain: string;
+  schemaName: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  picName: string;
+  picEmail: string;
+  phoneNumber: string;
+  address: string;
+  city: string;
+  province: string;
+  legalDocumentUrl: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // === Auth ===
+export interface SuperAdminUser {
+  userId: string;
+  email: string;
+  role: 'SuperAdmin'; // Role-nya spesifik 'SuperAdmin'
+  fullName: string;
+}
 export interface LoginDto {
   email: string;
   password: string;

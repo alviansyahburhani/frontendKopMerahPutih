@@ -1,29 +1,13 @@
 // frontend/services/superadmin.service.ts
-import { api, parseApiError, ApiErrorResponse } from '@/lib/api';
+import { adminApi, parseApiError } from '@/lib/adminApi';
+import { Tenant } from '@/types/api.types'; // <-- Impor tipe Tenant yang baru
 
-// Tipe data untuk tenant yang pending (sesuaikan dengan response GET /tenants/pending)
-export interface PendingTenant {
-  id: string;
-  name: string; // Nama Koperasi
-  subdomain: string;
-  schemaName?: string; // Opsional
-  status: 'PENDING';
-  createdAt: string;
-  updatedAt: string;
-  // Tambahkan field lain jika backend mengirimkannya (misal: email PIC, nama PIC)
-  picEmail?: string;
-  picName?: string;
-  city?: string; // Tambahkan jika ada
-  province?: string; // Tambahkan jika ada
-  phoneNumber?: string; // Tambahkan jika ada
-}
-
-// Tipe untuk body request reject (asumsi)
+// Tipe untuk body request reject
 interface RejectTenantDto {
   reason: string;
 }
 
-// Wrapper handleRequest
+// Wrapper handleRequest (biarkan apa adanya)
 async function handleRequest<T>(request: Promise<{ data: T }>): Promise<T> {
   try {
     const { data } = await request;
@@ -35,11 +19,20 @@ async function handleRequest<T>(request: Promise<{ data: T }>): Promise<T> {
 
 export const superAdminService = {
   /**
-   * Mengambil daftar pendaftaran tenant (koperasi) yang pending.
+   * Mengambil daftar SEMUA tenant (termasuk PENDING, APPROVED, REJECTED).
+   * Endpoint: GET /tenants
+   */
+  getAllTenants: (): Promise<Tenant[]> => {
+    return handleRequest(adminApi.get<Tenant[]>('/tenants'));
+  },
+
+  /**
+   * Mengambil daftar pendaftaran tenant (koperasi) yang PENDING.
    * Endpoint: GET /tenants/pending
    */
-  getPendingTenants: (): Promise<PendingTenant[]> => {
-    return handleRequest(api.get<PendingTenant[]>('/tenants/pending'));
+  getPendingTenants: (): Promise<Tenant[]> => {
+    // Gunakan Tipe Tenant yang baru
+    return handleRequest(adminApi.get<Tenant[]>('/tenants/pending'));
   },
 
   /**
@@ -47,18 +40,23 @@ export const superAdminService = {
    * Endpoint: POST /tenants/{id}/approve
    */
   approveTenant: (tenantId: string): Promise<{ message: string }> => {
-    return handleRequest(api.post<{ message: string }>(`/tenants/${tenantId}/approve`));
+    return handleRequest(adminApi.post<{ message: string }>(`/tenants/${tenantId}/approve`));
   },
 
   /**
    * Menolak pendaftaran tenant (koperasi).
    * Endpoint: POST /tenants/{id}/reject
-   * Mengirim alasan dalam body request (asumsi)
    */
   rejectTenant: (tenantId: string, reason: string): Promise<{ message: string }> => {
     const payload: RejectTenantDto = { reason };
-    return handleRequest(api.post<{ message: string }>(`/tenants/${tenantId}/reject`, payload));
+    return handleRequest(adminApi.post<{ message: string }>(`/tenants/${tenantId}/reject`, payload));
   },
 
-  // Fungsi lain bisa ditambahkan di sini
+  /**
+   * Menghapus tenant (koperasi) secara permanen.
+   * Endpoint: DELETE /tenants/{id}
+   */
+  deleteTenant: (tenantId: string): Promise<{ message: string }> => {
+    return handleRequest(adminApi.delete<{ message: string }>(`/tenants/${tenantId}`));
+  },
 };

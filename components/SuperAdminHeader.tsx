@@ -1,23 +1,56 @@
-// Lokasi: frontend/components/SuperAdminHeader.tsx
-"use client";
+// components/SuperAdminHeader.tsx
+'use client';
 
-import { Menu, ShieldCheck } from "lucide-react";
+import React from 'react';
+import { SuperAdminUser } from '@/types/api.types';
 
-type Props = {
-  toggleSidebar: () => void;
-};
+// Gabungkan props 'user' dan 'toggleSidebar'
+interface SuperAdminHeaderProps {
+  user: SuperAdminUser;
+  toggleSidebar: () => void; // <-- Prop yang Anda maksud
+}
 
-export default function SuperAdminHeader({ toggleSidebar }: Props) {
+export default function SuperAdminHeader({ 
+  user, 
+  toggleSidebar 
+}: SuperAdminHeaderProps) {
+  
+
   return (
-    // Header ini hanya muncul di mobile (md:hidden)
-    <header className="md:hidden sticky top-0 z-30 bg-white shadow-md border-b">
-      <div className="container mx-auto flex items-center justify-between p-4">
-        <p className="text-lg font-bold text-gray-800 flex items-center gap-2">
-           <ShieldCheck size={20} className="text-blue-600"/> Super Admin
-        </p>
-        <button onClick={toggleSidebar} className="p-2 rounded hover:bg-gray-100" aria-label="Buka Menu">
-          <Menu className="h-6 w-6 text-gray-700" />
+    <header className="flex items-center justify-between px-6 py-4 bg-white border-b-4 border-indigo-600">
+      <div className="flex items-center">
+        {/* * Ini tombol toggle Anda, sekarang terhubung ke 'toggleSidebar' 
+          * dari layout. (Saya ambil dari kode asli Anda)
+        */}
+        <button 
+          onClick={toggleSidebar} 
+          className="text-gray-500 focus:outline-none lg:hidden"
+        >
+          <svg 
+            className="w-6 h-6" 
+            viewBox="0 0 24 24" 
+            fill="none" 
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path 
+              d="M4 6H20M4 12H20M4 18H11" 
+              stroke="currentColor" 
+              strokeWidth="2" 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+            />
+          </svg>
         </button>
+        {/* Hapus h1 'Super Admin Dashboard' dari sini jika 
+            sudah ada di sidebar atau page.tsx */}
+      </div>
+
+      <div className="flex items-center">
+        <div className="relative">
+          {/* Tampilkan nama user */}
+          <span className="mr-4 font-medium text-gray-700">{user.fullName}</span>
+
+        </div>
       </div>
     </header>
   );
