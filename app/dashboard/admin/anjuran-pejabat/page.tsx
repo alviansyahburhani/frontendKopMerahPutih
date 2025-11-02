@@ -1,41 +1,313 @@
 // Lokasi: frontend/app/dashboard/admin/anjuran-pejabat/page.tsx
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, FormEvent, ChangeEvent, Fragment } from "react";
 import AdminPageHeader from "@/components/AdminPageHeader";
 import Button from "@/components/Button";
-import { PlusCircle, Search, Edit2, X } from "lucide-react";
+import { PlusCircle, Search, Edit2, X, CheckCircle, Loader2, FileText, Upload, Trash2 } from "lucide-react";
 import clsx from "clsx";
+import toast, { Toaster } from 'react-hot-toast';
 
-// --- Tipe Data (berdasarkan file 14. Buku Anjuran Pejabat.xls) ---
-type AnjuranPejabat = {
-  id: string;
-  tanggal: string;
-  namaPejabat: string;
-  jabatan: string;
-  alamatInstansi: string;
-  isiAnjuran: string;
-  tanggapanPengurus?: string | null;
+// --- [BARU] Impor tipe dan service ---
+import { 
+  adminService, 
+  OfficialRecommendation, 
+  CreateOfficialRecommendationDto, 
+  RespondOfficialRecommendationDto
+} from '@/services/admin.service';
+import { ApiErrorResponse } from "@/types/api.types";
+
+// --- [BARU] Tipe data di frontend (sama dengan backend) ---
+type AnjuranPejabat = OfficialRecommendation;
+
+// --- Data Contoh Dihapus ---
+
+// ==========================================================
+// [BARU] Komponen Modal Catat Anjuran
+// ==========================================================
+type AnjuranModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (anjuran: OfficialRecommendation) => void; // Callback setelah sukses
 };
 
-// --- Data Contoh ---
-const mockAnjuran: AnjuranPejabat[] = [
-  { id: 'ap001', tanggal: '2025-09-01', namaPejabat: 'Dr. H. Syarifuddin, M.Si.', jabatan: 'Kepala Dinas Koperasi & UKM', alamatInstansi: 'Jl. Veteran No. 123, Makassar', isiAnjuran: 'Dianjurkan kepada seluruh koperasi untuk segera melaporkan data SHU tahun buku 2024 paling lambat akhir bulan depan.', tanggapanPengurus: 'Baik, laporan sedang dalam proses finalisasi dan akan segera kami serahkan sebelum tenggat waktu.' },
-  { id: 'ap002', tanggal: '2025-07-20', namaPejabat: 'Ibu Aisyah, S.E.', jabatan: 'Staf Bidang Pengawasan', alamatInstansi: 'Dinas Koperasi & UKM', isiAnjuran: 'Terkait adanya program pelatihan digitalisasi untuk UMKM, diharapkan koperasi dapat mendelegasikan 2 orang anggota untuk mengikuti.', tanggapanPengurus: null },
-];
+const AnjuranModal = ({ isOpen, onClose, onSave }: AnjuranModalProps) => {
+  const [formData, setFormData] = useState<Omit<CreateOfficialRecommendationDto, 'date'>>({
+    officialName: '',
+    officialPositionAndAddress: '',
+    recommendation: '',
+  });
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [file, setFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    // Reset form saat dibuka
+    if (isOpen) {
+      setFormData({
+        officialName: '',
+        officialPositionAndAddress: '',
+        recommendation: '',
+      });
+      setDate(new Date().toISOString().split('T')[0]);
+      setFile(null);
+      setLoading(false);
+    }
+  }, [isOpen]);
+
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setFile(e.target.files[0]);
+    } else {
+      setFile(null);
+    }
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    const toastId = toast.loading('Mencatat anjuran...');
+
+    try {
+      // 1. Buat entri anjuran dulu
+      
+      // =================================================================
+      // === PERBAIKAN UTAMA DI SINI ===
+      // Kita konversi tanggal YYYY-MM-DD menjadi ISO DateTime String
+      // =================================================================
+      const dto: CreateOfficialRecommendationDto = { 
+        ...formData, 
+        // new Date("2025-11-02") akan dianggap sbg waktu lokal (WITA)
+        // .toISOString() akan mengonversinya ke UTC (Z)
+        date: new Date(date).toISOString() 
+      };
+      // =================================================================
+
+      const newAnjuran = await adminService.createOfficialRecommendation(dto);
+
+      let finalAnjuran = newAnjuran;
+
+      // 2. Jika ada file, unggah file ke entri yang baru dibuat
+      if (file) {
+        toast.loading('Mengunggah dokumen...', { id: toastId });
+        finalAnjuran = await adminService.uploadAnjuranDocument(newAnjuran.id, file);
+      }
+
+      toast.success('Anjuran berhasil dicatat!', { id: toastId });
+      onSave(finalAnjuran); // Kirim data baru ke parent
+      onClose();
+
+    } catch (err) {
+      const apiError = err as ApiErrorResponse;
+      toast.error(`Gagal: ${apiError.message}`, { id: toastId });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1">
+          <div className="p-5 border-b flex justify-between items-center">
+            <h2 className="text-xl font-bold text-gray-800">Catat Anjuran Pejabat Baru</h2>
+            <button type="button" onClick={onClose} disabled={loading} className="text-gray-500 hover:text-gray-800"><X size={24} /></button>
+          </div>
+          <div className="p-6 space-y-4 overflow-y-auto">
+            <div>
+              <label htmlFor="officialName" className="block text-sm font-medium text-gray-700">Nama Pejabat*</label>
+              <input type="text" id="officialName" name="officialName" required value={formData.officialName} onChange={handleChange} disabled={loading} className="mt-1 w-full p-2 border rounded-lg" />
+            </div>
+            <div>
+              <label htmlFor="officialPositionAndAddress" className="block text-sm font-medium text-gray-700">Jabatan & Alamat Instansi*</label>
+              <input type="text" id="officialPositionAndAddress" name="officialPositionAndAddress" required value={formData.officialPositionAndAddress} onChange={handleChange} disabled={loading} placeholder="Contoh: Kepala Dinas Koperasi, Jl. Veteran..." className="mt-1 w-full p-2 border rounded-lg" />
+            </div>
+             <div>
+              <label htmlFor="date" className="block text-sm font-medium text-gray-700">Tanggal Diterima/Dicatat*</label>
+              <input type="date" id="date" name="date" required value={date} onChange={(e) => setDate(e.target.value)} disabled={loading} className="mt-1 w-full p-2 border rounded-lg" />
+            </div>
+            <div>
+              <label htmlFor="recommendation" className="block text-sm font-medium text-gray-700">Isi Anjuran*</label>
+              <textarea id="recommendation" name="recommendation" rows={4} required value={formData.recommendation} onChange={handleChange} disabled={loading} className="mt-1 w-full p-2 border rounded-lg" />
+            </div>
+             <div>
+              <label htmlFor="file" className="block text-sm font-medium text-gray-700">Unggah Dokumen (Opsional)</label>
+              <input type="file" id="file" name="file" onChange={handleFileChange} disabled={loading} accept=".pdf,.jpg,.jpeg,.png" className="mt-1 w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
+              <p className="text-xs text-gray-500 mt-1">Unggah scan surat/dokumen anjuran jika ada (Kolom 6).</p>
+            </div>
+          </div>
+          <div className="p-4 bg-gray-50 border-t flex justify-end gap-3 rounded-b-xl">
+            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>Batal</Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? <Loader2 className="animate-spin" /> : 'Simpan Anjuran'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// ==========================================================
+// [BARU] Komponen Modal Tanggapi Anjuran
+// ==========================================================
+type RespondModalProps = {
+  anjuran: AnjuranPejabat | null;
+  onClose: () => void;
+  onSave: (updatedAnjuran: AnjuranPejabat) => void;
+};
+
+const RespondModal = ({ anjuran, onClose, onSave }: RespondModalProps) => {
+  const [response, setResponse] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (anjuran) {
+      // Jika sudah ada tanggapan sebelumnya, tampilkan (mode edit)
+      setResponse(anjuran.response || '');
+    }
+  }, [anjuran]);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!anjuran || !response.trim()) {
+      toast.error("Tanggapan tidak boleh kosong.");
+      return;
+    }
+
+    setLoading(true);
+    const toastId = toast.loading('Mengirim tanggapan...');
+    const dto: RespondOfficialRecommendationDto = { response };
+
+    try {
+      const updatedAnjuran = await adminService.respondToRecommendation(anjuran.id, dto);
+      toast.success('Tanggapan berhasil disimpan!', { id: toastId });
+      onSave(updatedAnjuran); // Kirim data update ke parent
+      onClose();
+
+    } catch (err) {
+      const apiError = err as ApiErrorResponse;
+      toast.error(`Gagal: ${apiError.message}`, { id: toastId });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!anjuran) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1">
+          <div className="p-5 border-b flex justify-between items-center">
+            <h2 className="text-xl font-bold text-gray-800">Beri Tanggapan</h2>
+            <button type="button" onClick={onClose} disabled={loading} className="text-gray-500 hover:text-gray-800"><X size={24} /></button>
+          </div>
+          <div className="p-6 space-y-4 overflow-y-auto">
+            <div className="bg-gray-50 p-3 rounded-lg border">
+              <p className="text-sm font-medium text-gray-500">Anjuran dari: {anjuran.officialName}</p>
+              <p className="text-sm text-gray-700 mt-2 italic">&quot;{anjuran.recommendation}&quot;</p>
+            </div>
+            <div>
+              <label htmlFor="response" className="block text-sm font-medium text-gray-700">Tanggapan Pengurus (Kolom 7)*</label>
+              <textarea id="response" name="response" rows={4} required value={response} onChange={(e) => setResponse(e.target.value)} disabled={loading} className="mt-1 w-full p-2 border rounded-lg" />
+            </div>
+          </div>
+          <div className="p-4 bg-gray-50 border-t flex justify-end gap-3 rounded-b-xl">
+            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>Batal</Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? <Loader2 className="animate-spin" /> : 'Simpan Tanggapan'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+
+// ==========================================================
+// [LAMA] Komponen Skeleton (Tidak Berubah)
+// ==========================================================
+const Skeleton = ({ className = "" }: { className?: string }) => (
+  <div className={clsx("animate-pulse bg-gray-200 rounded-md", className)} />
+);
+const AnjuranPejabatSkeleton = () => (
+    <div>
+      <div className="mb-8">
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-4 w-96 mt-2" />
+      </div>
+      <div className="bg-white rounded-xl shadow-lg border border-gray-100">
+        <div className="p-6 border-b border-gray-200">
+          <Skeleton className="h-6 w-1/2 mx-auto text-center" />
+          <div className="mt-6 max-w-4xl mx-auto grid grid-cols-2 gap-x-12 text-sm">
+            <div className="space-y-2"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-full" /></div>
+            <div className="space-y-2"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-full" /></div>
+          </div>
+        </div>
+        <div className="p-6">
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6 flex items-end gap-4">
+            <div className="grow"><Skeleton className="h-4 w-24 mb-1" /><Skeleton className="w-full h-10 rounded-lg" /></div>
+            <Skeleton className="h-10 w-24" />
+          </div>
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="border border-gray-200 rounded-lg">
+                <div className="p-4">
+                  <div className="flex justify-between items-start">
+                    <div><Skeleton className="h-4 w-64 mb-1" /><Skeleton className="h-3 w-48 mt-1" /></div>
+                    <div className="flex gap-2"><Skeleton className="h-8 w-24 rounded" /></div>
+                  </div>
+                  <Skeleton className="h-4 w-full mt-4" />
+                  <Skeleton className="h-4 w-5/6 mt-2" />
+                </div>
+                <div className="p-4 bg-green-50 border-t border-green-200 rounded-b-lg">
+                  <Skeleton className="h-4 w-24 mb-2" /><Skeleton className="h-4 w-full mt-2" /><Skeleton className="h-4 w-5/6 mt-1" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+);
+
+// ==========================================================
+// [MODIFIKASI] Komponen Halaman Utama
+// ==========================================================
 export default function AnjuranPejabatPage() {
   const [filters, setFilters] = useState({ search: '' });
   const [anjuranList, setAnjuranList] = useState<AnjuranPejabat[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // State untuk modal
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [anjuranToRespond, setAnjuranToRespond] = useState<AnjuranPejabat | null>(null);
 
-  // Simulate loading data
+  // [MODIFIKASI] Ganti useEffect untuk load data dari API
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setAnjuranList(mockAnjuran);
-      setLoading(false);
-    }, 800);
-    return () => clearTimeout(timer);
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const data = await adminService.getAllOfficialRecommendations();
+        // Urutkan dari yang terbaru
+        data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        setAnjuranList(data);
+      } catch (err) {
+        const apiError = err as ApiErrorResponse;
+        toast.error(`Gagal memuat data: ${apiError.message || 'Error tidak diketahui'}`);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
   }, []);
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -44,80 +316,42 @@ export default function AnjuranPejabatPage() {
   
   const resetFilters = () => setFilters({ search: '' });
 
+  // [MODIFIKASI] Filter disesuaikan dengan field backend
   const filteredAnjuran = useMemo(() => {
     return anjuranList.filter(anjuran => 
-      anjuran.namaPejabat.toLowerCase().includes(filters.search.toLowerCase()) || 
-      anjuran.isiAnjuran.toLowerCase().includes(filters.search.toLowerCase())
+      anjuran.officialName.toLowerCase().includes(filters.search.toLowerCase()) || 
+      anjuran.recommendation.toLowerCase().includes(filters.search.toLowerCase())
     );
   }, [anjuranList, filters]);
 
-  const handleTambahAnjuran = () => alert("Membuka form untuk mencatat anjuran baru dari pejabat...");
+  // [MODIFIKASI] Aksi ini sekarang membuka modal
+  const handleTambahAnjuran = () => setIsCreateModalOpen(true);
 
-  // Skeleton kecil
-  const Skeleton = ({ className = "" }: { className?: string }) => (
-    <div className={clsx("animate-pulse bg-gray-200 rounded-md", className)} />
-  );
+  // [BARU] Fungsi callback untuk modal create
+  const handleSaveNew = (newAnjuran: AnjuranPejabat) => {
+    setAnjuranList(prev => [newAnjuran, ...prev]);
+  };
+  
+  // [BARU] Fungsi callback untuk modal respond
+  const handleSaveResponse = (updatedAnjuran: AnjuranPejabat) => {
+    setAnjuranList(prev => prev.map(item => item.id === updatedAnjuran.id ? updatedAnjuran : item));
+  };
+  
+  // [BARU] Fungsi Hapus
+  const handleDelete = (id: string, namaPejabat: string) => {
+    if (!window.confirm(`Yakin ingin menghapus anjuran dari "${namaPejabat}"?`)) return;
 
-  const AnjuranPejabatSkeleton = () => (
-    <div>
-      <div className="mb-8">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-4 w-96 mt-2" />
-      </div>
+    const promise = adminService.deleteOfficialRecommendation(id);
+    toast.promise(promise, {
+      loading: 'Menghapus...',
+      success: () => {
+        setAnjuranList(prev => prev.filter(item => item.id !== id));
+        return 'Anjuran berhasil dihapus.';
+      },
+      error: (err: ApiErrorResponse) => `Gagal: ${err.message}`,
+    });
+  };
 
-      <div className="bg-white rounded-xl shadow-lg border border-gray-100">
-        <div className="p-6 border-b border-gray-200">
-          <Skeleton className="h-6 w-1/2 mx-auto text-center" />
-          <div className="mt-6 max-w-4xl mx-auto grid grid-cols-2 gap-x-12 text-sm">
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-full" />
-            </div>
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-full" />
-            </div>
-          </div>
-        </div>
-
-        <div className="p-6">
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6 flex items-end gap-4">
-            <div className="grow">
-              <Skeleton className="h-4 w-24 mb-1" />
-              <Skeleton className="w-full h-10 rounded-lg" />
-            </div>
-            <Skeleton className="h-10 w-24" />
-          </div>
-
-          {/* Entries List */}
-          <div className="space-y-4">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="border border-gray-200 rounded-lg">
-                <div className="p-4">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <Skeleton className="h-4 w-64 mb-1" />
-                      <Skeleton className="h-3 w-48 mt-1" />
-                    </div>
-                    <div className="flex gap-2">
-                      <Skeleton className="h-8 w-24 rounded" />
-                    </div>
-                  </div>
-                  <Skeleton className="h-4 w-full mt-4" />
-                  <Skeleton className="h-4 w-5/6 mt-2" />
-                </div>
-                <div className="p-4 bg-green-50 border-t border-green-200 rounded-b-lg">
-                  <Skeleton className="h-4 w-24 mb-2" />
-                  <Skeleton className="h-4 w-full mt-2" />
-                  <Skeleton className="h-4 w-5/6 mt-1" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 
   if (loading) {
     return <AnjuranPejabatSkeleton />;
@@ -125,6 +359,7 @@ export default function AnjuranPejabatPage() {
 
   return (
     <div>
+      <Toaster position="top-right" />
       <AdminPageHeader
         title="Buku Anjuran Pejabat"
         description="Arsipkan semua anjuran dan instruksi resmi dari pejabat terkait."
@@ -137,7 +372,7 @@ export default function AnjuranPejabatPage() {
       
       <div className="bg-white rounded-xl shadow-lg border border-gray-100">
         
-        {/* --- KOP SURAT --- */}
+        {/* --- KOP SURAT (Tidak Berubah) --- */}
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-lg font-bold text-center uppercase tracking-wider text-gray-700">
             Buku Anjuran Pejabat
@@ -155,6 +390,7 @@ export default function AnjuranPejabatPage() {
         </div>
 
         <div className="p-6">
+          {/* --- Filter (Tidak Berubah) --- */}
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6 flex items-end gap-4">
             <div className="grow">
               <label htmlFor="search" className="block text-sm font-medium text-gray-600 mb-1">Cari Anjuran / Nama Pejabat</label>
@@ -166,29 +402,54 @@ export default function AnjuranPejabatPage() {
             <Button onClick={resetFilters} variant="outline"><X size={16} /> Reset</Button>
           </div>
 
+          {/* --- [MODIFIKASI] Daftar Anjuran --- */}
           <div className="space-y-4">
             {filteredAnjuran.map((anjuran) => (
               <div key={anjuran.id} className="border border-gray-200 rounded-lg">
                 <div className="p-4">
                     <div className="flex justify-between items-start">
                         <div>
-                            <p className="font-bold text-gray-800">Dari: {anjuran.namaPejabat} <span className="font-normal text-gray-600">({anjuran.jabatan})</span></p>
+                            {/* Menggunakan field baru */}
+                            <p className="font-bold text-gray-800">Dari: {anjuran.officialName}</p>
+                            <p className="text-sm text-gray-600">({anjuran.officialPositionAndAddress})</p>
                             <p className="text-xs text-gray-500 mt-1">
-                                Dicatat pada: {new Date(anjuran.tanggal).toLocaleDateString('id-ID')}
+                                Dicatat pada: {new Date(anjuran.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}
                             </p>
                         </div>
                          <div className="flex gap-2">
-                            <Button variant="outline" className="text-xs p-2"><Edit2 size={14}/> Beri Tanggapan</Button>
+                            {/* Tombol "Beri Tanggapan" hanya muncul jika belum ditanggapi */}
+                            {!anjuran.response && (
+                              <Button variant="outline" className="text-xs p-2" onClick={() => setAnjuranToRespond(anjuran)}>
+                                <Edit2 size={14}/> Beri Tanggapan
+                              </Button>
+                            )}
+                            {/* Tombol "Lihat Dokumen" (Kolom 6) */}
+                            {anjuran.documentUrl && (
+                              <a href={anjuran.documentUrl} target="_blank" rel="noopener noreferrer">
+                                <Button variant="outline" className="text-xs p-2 text-blue-600 border-blue-200 hover:bg-blue-50">
+                                  <FileText size={14}/> Dokumen
+                                </Button>
+                              </a>
+                            )}
+                            <Button variant="outline" className="text-xs p-2 text-red-600 border-red-200 hover:bg-red-50" onClick={() => handleDelete(anjuran.id, anjuran.officialName)}>
+                              <Trash2 size={14}/>
+                            </Button>
                          </div>
                     </div>
+                    {/* Menggunakan field baru */}
                     <p className="text-sm text-gray-700 mt-4 border-l-4 border-gray-200 pl-4 py-2">
-                        {anjuran.isiAnjuran}
+                        {anjuran.recommendation}
                     </p>
                 </div>
-                {anjuran.tanggapanPengurus && (
+                {/* [MODIFIKASI] Menampilkan tanggapan dinamis (Kolom 8) */}
+                {anjuran.response && (
                     <div className="p-4 bg-green-50 border-t border-green-200 rounded-b-lg">
-                        <p className="text-sm font-semibold text-green-800">Tanggapan Pengurus:</p>
-                        <p className="text-sm text-green-700 mt-2 italic">&quot;{anjuran.tanggapanPengurus}&quot;</p>
+                        <p className="text-sm font-semibold text-green-800 flex items-center gap-2">
+                          <CheckCircle size={16} />
+                          {/* Menampilkan nama penanggap (Kolom 8) */}
+                          Tanggapan dari: {anjuran.responseByUser?.fullName || 'Pengurus'}
+                        </p>
+                        <p className="text-sm text-green-700 mt-2 italic">&quot;{anjuran.response}&quot;</p>
                     </div>
                 )}
               </div>
@@ -201,6 +462,20 @@ export default function AnjuranPejabatPage() {
           </div>
         </div>
       </div>
+
+      {/* --- [BARU] Render Modal --- */}
+      <AnjuranModal 
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSave={handleSaveNew}
+      />
+      
+      <RespondModal 
+        anjuran={anjuranToRespond}
+        onClose={() => setAnjuranToRespond(null)}
+        onSave={handleSaveResponse}
+      />
+
     </div>
   );
 }
