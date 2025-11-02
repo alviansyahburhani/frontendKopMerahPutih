@@ -172,3 +172,81 @@ export interface GuestBookEntry {
   purpose: string;
   signatureUrl?: string | null;
 }
+
+/**
+ * DTO (Payload) untuk MEMBUAT notulen rapat pengurus.
+ * Sesuai dengan CreateBoardMeetingNoteDto di backend.
+ * Endpoint: POST /board-meeting-notes
+ */
+export interface CreateBoardMeetingNoteDto {
+  date: string; // Sebaiknya dalam format YYYY-MM-DD atau ISO string
+  location: string;
+  leader: string;
+  totalAttendees: number;
+  agenda: string; // Teks biasa, bukan array
+  decisions: string; // Teks biasa, bukan array
+  notulenSignatureUrl?: string; // Opsional
+}
+
+/**
+ * DTO (Payload) untuk MENGUPDATE notulen rapat pengurus.
+ * Sesuai dengan UpdateBoardMeetingNoteDto di backend.
+ * Endpoint: PATCH /board-meeting-notes/:id
+ */
+export type UpdateBoardMeetingNoteDto = Partial<CreateBoardMeetingNoteDto>;
+
+/**
+ * Tipe data respons penuh untuk Notulen Rapat Pengurus.
+ * Ini yang diterima dari backend saat GET.
+ * Endpoint: GET /board-meeting-notes
+ */
+export interface BoardMeetingNoteResponse {
+  id: string;
+  date: string;
+  location: string;
+  leader: string;
+  totalAttendees: number;
+  agenda: string;
+  decisions: string;
+  notulenSignatureUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+  
+  // Relasi: Pengurus yang mencatat notulen
+  // Sesuai analisis backend, 'notulenBy' akan disertakan
+  notulenBy: {
+    id: string;
+    fullName: string;
+  };
+}
+
+// Tipe Data untuk Baca (GET /agenda-expedition)
+export interface AgendaExpedition {
+  id: string;
+  mailSequenceNumber: number;
+  letterDate: string;
+  letterNumber: string;
+  addressedTo: string;
+  subject: string;
+  notes?: string | null; // <-- Biarkan di sini, tidak masalah saat membaca
+  type: 'LETTER_IN' | 'LETTER_OUT';
+}
+
+// DTO untuk Tulis (POST /agenda-expedition)
+export interface CreateAgendaExpeditionDto {
+  letterDate: string;
+  letterNumber: string;
+  addressedTo: string;
+  subject: string;
+  type: 'LETTER_IN' | 'LETTER_OUT';
+  // notes?: string; // <-- HAPUS BARIS INI
+}
+
+// DTO untuk Edit (PATCH /agenda-expedition/:id)
+export interface UpdateAgendaExpeditionDto {
+  letterDate?: string;
+  letterNumber?: string;
+  addressedTo?: string;
+  subject?: string;
+  // notes?: string; // <-- HAPUS BARIS INI
+}

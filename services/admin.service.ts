@@ -6,6 +6,11 @@ import {
   GuestBookEntry,
   UpdateGuestBookDto,
 } from '@/types/api.types';
+import { 
+  AgendaExpedition,
+  CreateAgendaExpeditionDto,
+  UpdateAgendaExpeditionDto,
+} from '@/types/api.types';
 
 export interface TenantInfo {
   cooperativeName: string;
@@ -19,6 +24,56 @@ export interface TenantInfo {
 export interface RespondSuggestionDto {
   response: string;
 }
+
+
+/**
+ * DTO (Payload) untuk MEMBUAT notulen rapat pengurus.
+ * Sesuai dengan CreateBoardMeetingNoteDto di backend.
+ * Endpoint: POST /board-meeting-notes
+ */
+export interface CreateBoardMeetingNoteDto {
+  date: string; // Sebaiknya dalam format YYYY-MM-DD atau ISO string
+  location: string;
+  leader: string;
+  totalAttendees: number;
+  agenda: string; // Teks biasa, bukan array
+  decisions: string; // Teks biasa, bukan array
+  notulenSignatureUrl?: string; // Opsional
+}
+
+/**
+ * DTO (Payload) untuk MENGUPDATE notulen rapat pengurus.
+ * Sesuai dengan UpdateBoardMeetingNoteDto di backend.
+ * Endpoint: PATCH /board-meeting-notes/:id
+ */
+export type UpdateBoardMeetingNoteDto = Partial<CreateBoardMeetingNoteDto>;
+
+/**
+ * Tipe data respons penuh untuk Notulen Rapat Pengurus.
+ * Ini yang diterima dari backend saat GET.
+ * Endpoint: GET /board-meeting-notes
+ */
+export interface BoardMeetingNoteResponse {
+  id: string;
+  date: string;
+  location: string;
+  leader: string;
+  totalAttendees: number;
+  agenda: string;
+  decisions: string;
+  notulenSignatureUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+  
+  // Relasi: Pengurus yang mencatat notulen
+  // Sesuai analisis backend, 'notulenBy' akan disertakan
+  notulenBy: {
+    id: string;
+    fullName: string;
+  };
+}
+
+
 
 // Tipe data lengkap untuk Saran Anggota (sesuai backend)
 export interface MemberSuggestionResponse {
@@ -281,12 +336,141 @@ export interface TenantSummary {
   legalNumber?: string;
 }
 
+/**
+ * Tipe data lengkap dari backend (Prisma Model)
+ * Sesuai dengan GET /official-recommendation
+ */
+export interface OfficialRecommendation {
+  id: string;
+  entryNumber: number; // No Urut
+  date: string; // Tanggal Catat (Kolom 2) - INI AKAN MENJADI ISO STRING
+  
+  officialName: string; // Nama Pejabat (Kolom 3)
+  officialPositionAndAddress: string; // Jabatan & Alamat (Kolom 4 & 5)
+  recommendation: string; // Isi Anjuran (Kolom 5)
+  documentUrl: string | null; // Tanda Tangan/Dokumen Pejabat (Kolom 6)
+
+  response: string | null; // Tanggapan Pengurus (Kolom 7)
+  responseAt: string | null; // Tanggal Tanggapan
+  
+  // Tanda Tangan Pengurus (Kolom 8) - Diwakili oleh relasi
+  responseByUserId: string | null;
+  responseByUser: {
+    id: string;
+    fullName: string;
+  } | null;
+  
+  tenantId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * DTO untuk MENCATAT anjuran baru
+ * Sesuai dengan POST /official-recommendation
+ */
+export interface CreateOfficialRecommendationDto {
+  date: string; // HARUS ISO STRING (cth: 2025-11-02T00:00:00.000Z)
+  officialName: string;
+  officialPositionAndAddress: string;
+  recommendation: string;
+}
+
+/**
+ * DTO untuk MEMBERI TANGGAPAN
+ * Sesuai dengan POST /:id/respond
+ */
+export interface RespondOfficialRecommendationDto {
+  response: string;
+}
+
+
+
 export type PendingRegistration = Omit<MemberRegistration, 'hashedPassword'>;
 
 export const adminService = {
 
-  
 
+  /**
+   * (BUKU 14) Mengambil semua Anjuran Pejabat.
+   * Endpoint: GET /official-recommendation
+   */
+  getAllOfficialRecommendations: (): Promise<OfficialRecommendation[]> => {
+    return handleRequest(api.get<OfficialRecommendation[]>('/official-recommendation'));
+  },
+
+  /**
+   * (BUKU 14) Mencatat Anjuran Pejabat baru.
+   * Endpoint: POST /official-recommendation
+   */
+  createOfficialRecommendation: (dto: CreateOfficialRecommendationDto): Promise<OfficialRecommendation> => {
+    return handleRequest(api.post<OfficialRecommendation>('/official-recommendation', dto));
+  },
+
+  /**
+   * (BUKU 14) Memberi tanggapan pada Anjuran Pejabat.
+   * Endpoint: POST /official-recommendation/:id/respond
+   */
+  respondToRecommendation: (id: string, dto: RespondOfficialRecommendationDto): Promise<OfficialRecommendation> => {
+    return handleRequest(api.post<OfficialRecommendation>(`/official-recommendation/${id}/respond`, dto));
+  },
+
+  /**
+   * (BUKU 14) Mengunggah dokumen/scan anjuran (Kolom 6).
+   * Endpoint: POST /official-recommendation/:id/document
+   */
+  uploadAnjuranDocument: (id: string, file: File): Promise<OfficialRecommendation> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    // 'api.post' sudah di-setup di 'lib/api.ts' untuk handle FormData (menghapus Content-Type)
+    return handleRequest(api.post<OfficialRecommendation>(`/official-recommendation/${id}/document`, formData));
+  },
+
+  /**
+   * (BUKU 14) Menghapus Anjuran Pejabat.
+   * Endpoint: DELETE /official-recommendation/:id
+   */
+  deleteOfficialRecommendation: (id: string): Promise<{ message: string }> => {
+    return handleRequest(api.delete<{ message: string }>(`/official-recommendation/${id}`));
+  },
+
+
+  /**
+   * Mengambil semua entri agenda & ekspedisi (Admin)
+   * Endpoint: GET /agenda-expedition
+   */
+  getAgendaExpeditions: (): Promise<AgendaExpedition[]> => {
+    return handleRequest(api.get<AgendaExpedition[]>('/agenda-expedition'));
+  },
+
+  /**
+   * Membuat entri agenda/ekspedisi baru (Admin)
+   * Endpoint: POST /agenda-expedition
+   */
+  createAgendaExpedition: (
+    dto: CreateAgendaExpeditionDto
+  ): Promise<AgendaExpedition> => {
+    return handleRequest(api.post<AgendaExpedition>('/agenda-expedition', dto));
+  },
+
+  /**
+   * Mengupdate entri agenda/ekspedisi (Admin)
+   * Endpoint: PATCH /agenda-expedition/:id
+   */
+  updateAgendaExpedition: (
+    id: string,
+    dto: UpdateAgendaExpeditionDto
+  ): Promise<AgendaExpedition> => {
+    return handleRequest(api.patch<AgendaExpedition>(`/agenda-expedition/${id}`, dto));
+  },
+
+  /**
+   * Menghapus entri agenda/ekspedisi (Admin)
+   * Endpoint: DELETE /agenda-expedition/:id
+   */
+  deleteAgendaExpedition: (id: string): Promise<void> => {
+    return handleRequest(api.delete<void>(`/agenda-expedition/${id}`));
+  },
   
 
   /**
@@ -527,6 +711,39 @@ terminateSupervisoryPosition: (id: string): Promise<{ message: string }> => {
       }),
     );
   },
+
+    /**
+   * Mengambil semua notulen rapat pengurus
+   * Endpoint: GET /board-meeting-notes
+   */
+  getBoardMeetingNotes: (): Promise<BoardMeetingNoteResponse[]> => {
+    return handleRequest(api.get<BoardMeetingNoteResponse[]>('/board-meeting-notes'));
+  },
+
+  /**
+   * Membuat notulen rapat pengurus baru
+   * Endpoint: POST /board-meeting-notes
+   */
+  createBoardMeetingNote: (dto: CreateBoardMeetingNoteDto): Promise<BoardMeetingNoteResponse> => {
+    return handleRequest(api.post<BoardMeetingNoteResponse>('/board-meeting-notes', dto));
+  },
+
+  /**
+   * Mengupdate notulen rapat pengurus
+   * Endpoint: PATCH /board-meeting-notes/:id
+   */
+  updateBoardMeetingNote: (id: string, dto: UpdateBoardMeetingNoteDto): Promise<BoardMeetingNoteResponse> => {
+    return handleRequest(api.patch<BoardMeetingNoteResponse>(`/board-meeting-notes/${id}`, dto));
+  },
+
+  /**
+   * Menghapus notulen rapat pengurus
+   * Endpoint: DELETE /board-meeting-notes/:id
+   */
+  deleteBoardMeetingNote: (id: string): Promise<{ message: string }> => {
+    return handleRequest(api.delete<{ message: string }>(`/board-meeting-notes/${id}`));
+  },
+
 /**
    * Mengambil daftar buku tamu (Perlu login Admin)
    * Endpoint: GET /guest-book
@@ -578,7 +795,7 @@ terminateSupervisoryPosition: (id: string): Promise<{ message: string }> => {
    */
   deleteMemberSuggestion: (id: string): Promise<{ message: string }> => {
     return handleRequest(api.delete<{ message: string }>(`/member-suggestion/${id}`));
-  }
+  }  
 
 
 };
