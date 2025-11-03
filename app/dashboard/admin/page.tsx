@@ -549,6 +549,12 @@ export default function AdminDashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [boardPositions, setBoardPositions] = useState<string[] | null>(null);
+  const [boardPositionsStatus, setBoardPositionsStatus] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle");
+  const [boardPositionsError, setBoardPositionsError] = useState<string | null>(
+    null
+  );
   const [loanList, setLoanList] = useState<Loan[]>([]);
   const [memberList, setMemberList] = useState<Member[]>([]);
   const [simpananTransactionsList, setSimpananTransactionsList] = useState<
@@ -560,6 +566,11 @@ export default function AdminDashboardPage() {
 
     const loadBoardPositions = async () => {
       try {
+        if (!isMounted) {
+          return;
+        }
+        setBoardPositionsStatus("loading");
+        setBoardPositionsError(null);
         const positions = await adminService.getMyActiveBoardPositions();
         if (!isMounted) return;
 
@@ -571,10 +582,16 @@ export default function AdminDashboardPage() {
           )
         );
         setBoardPositions(uniquePositions);
+        setBoardPositionsStatus("success");
       } catch (error) {
         console.warn("Gagal mengambil jabatan pengurus aktif:", error);
         if (isMounted) {
+          setBoardPositionsStatus("error");
+          setBoardPositionsError(
+            error instanceof Error ? error.message : "Tidak dapat memuat jabatan."
+          );
           setBoardPositions([]);
+          setLoading(false);
         }
       }
     };
@@ -587,7 +604,7 @@ export default function AdminDashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (boardPositions === null) {
+    if (boardPositionsStatus !== "success" || boardPositions === null) {
       return;
     }
 
@@ -600,6 +617,9 @@ export default function AdminDashboardPage() {
         .map((pos) => pos.toLowerCase())
         .filter(Boolean);
       const canAccessFinance = normalized.includes("bendahara");
+      const canAccessMembership = normalized.some((role) =>
+        ["ketua", "sekretaris"].includes(role)
+      );
 
       try {
         const [simpananData, loanData, memberData] = await Promise.all([
@@ -615,10 +635,12 @@ export default function AdminDashboardPage() {
                 return [] as Loan[];
               })
             : Promise.resolve([] as Loan[]),
-          memberApi.getAllMembers().catch((error) => {
-            console.warn("Data anggota tidak dapat diakses:", error);
-            return [] as Member[];
-          }),
+          canAccessMembership
+            ? memberApi.getAllMembers().catch((error) => {
+                console.warn("Data anggota tidak dapat diakses:", error);
+                return [] as Member[];
+              })
+            : Promise.resolve([] as Member[]),
         ]);
 
         if (!isMounted) {
@@ -662,7 +684,7 @@ export default function AdminDashboardPage() {
     return () => {
       isMounted = false;
     };
-  }, [boardPositions]);
+  }, [boardPositionsStatus, boardPositions]);
 
   const normalizedPositions = useMemo(
     () =>
@@ -784,6 +806,20 @@ export default function AdminDashboardPage() {
       ? true
       : isChair || isSecretary || (!isTreasurer && !hasRoleAssignments);
   const skeletonActivity = skeletonManagement;
+
+  if (boardPositionsStatus === "error") {
+    return (
+      <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+        <p className="font-semibold text-red-800">
+          Tidak dapat memuat informasi jabatan pengurus.
+        </p>
+        <p className="mt-2">
+          {boardPositionsError ??
+            "Periksa koneksi server atau coba muat ulang halaman."}
+        </p>
+      </div>
+    );
+  }
 
   if (loading || !data) {
     return (
