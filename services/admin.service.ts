@@ -469,11 +469,86 @@ export interface MemberMeetingNoteResponse {
   tenantId: string;
 }
 
+// [PERBAIKI/TAMBAHKAN DTO INI]
+// DTO untuk Notulen Rapat Pengawas (Buku 09)
+// Sesuai dengan pesan error terakhir Anda
+export interface CreateSupervisorMeetingNoteDto {
+  meetingDate: string; // YYYY-MM-DD
+  location: string;
+  meetingType: string;
+  leader: string;
+  totalSupervisory: number; // Total Pengawas
+  supervisoryPresent: number; // Pengawas Hadir
+  agendaAndDecision: string;
+}
+
+export type UpdateSupervisorMeetingNoteDto = Partial<CreateSupervisorMeetingNoteDto>;
+
+export interface SupervisorMeetingNoteResponse {
+  id: string;
+  meetingDate: string; // ISO String
+  location: string;
+  meetingType: string;
+  leader: string;
+  totalSupervisory: number;
+  supervisoryPresent: number;
+  agendaAndDecision: string;
+  documentUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+  tenantId: string;
+}
+
 
 
 export type PendingRegistration = Omit<MemberRegistration, 'hashedPassword'>;
 
 export const adminService = {
+
+
+// [PERBAIKI/TAMBAHKAN FUNGSI INI]
+  /**
+   * (BUKU 09) Mengambil semua notulen rapat pengawas.
+   * Endpoint: GET /supervisory-meeting-notes (dengan 'y')
+   */
+  getSupervisorMeetingNotes: (): Promise<SupervisorMeetingNoteResponse[]> => {
+    return handleRequest(api.get<SupervisorMeetingNoteResponse[]>('/supervisory-meeting-notes'));
+  },
+
+  /**
+   * (BUKU 09) Membuat notulen rapat pengawas baru.
+   * Endpoint: POST /supervisory-meeting-notes
+   */
+  createSupervisorMeetingNote: (dto: CreateSupervisorMeetingNoteDto): Promise<SupervisorMeetingNoteResponse> => {
+    return handleRequest(api.post<SupervisorMeetingNoteResponse>('/supervisory-meeting-notes', dto));
+  },
+
+  /**
+   * (BUKU 09) Mengupdate notulen rapat pengawas.
+   * Endpoint: PATCH /supervisory-meeting-notes/:id
+   */
+  updateSupervisorMeetingNote: (id: string, dto: UpdateSupervisorMeetingNoteDto): Promise<SupervisorMeetingNoteResponse> => {
+    return handleRequest(api.patch<SupervisorMeetingNoteResponse>(`/supervisory-meeting-notes/${id}`, dto));
+  },
+
+  /**
+   * (BUKU 09) Menghapus notulen rapat pengawas.
+   * Endpoint: DELETE /supervisory-meeting-notes/:id
+   */
+  deleteSupervisorMeetingNote: (id: string): Promise<{ message: string }> => {
+    return handleRequest(api.delete<{ message: string }>(`/supervisory-meeting-notes/${id}`));
+  },
+
+  /**
+   * (BUKU 09) Mengunggah dokumen notulen rapat pengawas.
+   * Endpoint: POST /supervisory-meeting-notes/:id/document
+   */
+  uploadSupervisorMeetingNoteDocument: (id: string, file: File): Promise<SupervisorMeetingNoteResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return handleRequest(api.post<SupervisorMeetingNoteResponse>(`/supervisory-meeting-notes/${id}/document`, formData));
+  },
+
 
   /**
    * (BUKU 07) Mengambil semua notulen rapat anggota.
