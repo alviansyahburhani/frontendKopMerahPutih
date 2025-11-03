@@ -9,6 +9,9 @@ import Link from "next/link";
 import { useEffect, useState, ElementType } from "react";
 import clsx from "clsx";
 
+// Import API services
+import { simpananApi, loanApi, memberApi } from "@/lib/apiService";
+
 // --- Tipe Data Diperbarui ---
 type DashboardData = {
   namaKoperasi: string;
@@ -96,35 +99,83 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchData = () => {
-      const mockData: DashboardData = {
-        namaKoperasi: "Koperasi Merah Putih",
-        stats: {
-          totalAnggota: { value: 152, change: 5 },
-          totalSimpanan: { value: 850750000, change: 12 },
-          totalPinjaman: { value: 215500000, change: -3 },
-        },
-        tugas: {
-            pendaftarBaru: 3,
-            saranBaru: 5,
-        },
-        anggotaTerbaru: [
-          { nama: "Siti Lestari", tanggalMasuk: "14 Sep 2025" },
-          { nama: "Agus Purnomo", tanggalMasuk: "11 Sep 2025" },
-          { nama: "Rina Wulandari", tanggalMasuk: "08 Sep 2025" },
-        ],
-        aktivitasTerbaru: [
-            { ikon: HandCoins, teks: "Pinjaman baru untuk Budi Santoso telah dicatat.", waktu: "2 jam lalu" },
-            { ikon: Landmark, teks: "Setoran sukarela dari Alviansyah Burhani diterima.", waktu: "Kemarin" },
-            { ikon: BookUser, teks: "Andi Wijaya diangkat sebagai Ketua Pengurus.", waktu: "3 hari lalu" },
-        ]
-      };
-      setData(mockData);
-      setLoading(false);
+    const fetchDashboardData = async () => {
+      try {
+        // Fetch simpanan data
+        const [simpananTransactions, loans, members] = await Promise.all([
+          simpananApi.getAllTransactions(),
+          loanApi.getAllLoans(),
+          memberApi.getAllMembers()
+        ]);
+        
+        
+        // Calculate total simpanan based on transaction history
+        let totalSimpanan = 0;
+        
+        simpananTransactions.forEach(trx => {
+          const amount = trx.jumlah;
+          const sign = trx.tipe === 'SETORAN' ? 1 : -1;
+          totalSimpanan += sign * amount;
+        });
+        
+        // Calculate total pinjaman beredar (aktif)
+        const totalPinjamanBeredar = loans.filter(loan => loan.status !== 'PAID_OFF').reduce((sum, loan) => sum + loan.loanAmount, 0);
+        
+        const dashboardData: DashboardData = {
+          namaKoperasi: "Koperasi Merah Putih",
+          stats: {
+            totalAnggota: { value: members.length, change: 5 },
+            totalSimpanan: { value: totalSimpanan, change: 12 },
+            totalPinjaman: { value: totalPinjamanBeredar, change: -3 },
+          },
+          tugas: {
+              pendaftarBaru: 3,
+              saranBaru: 5,
+          },
+          anggotaTerbaru: [
+            { nama: "Siti Lestari", tanggalMasuk: "14 Sep 2025" },
+            { nama: "Agus Purnomo", tanggalMasuk: "11 Sep 2025" },
+            { nama: "Rina Wulandari", tanggalMasuk: "08 Sep 2025" },
+          ],
+          aktivitasTerbaru: [
+              { ikon: HandCoins, teks: "Pinjaman baru untuk Budi Santoso telah dicatat.", waktu: "2 jam lalu" },
+              { ikon: Landmark, teks: "Setoran sukarela dari Alviansyah Burhani diterima.", waktu: "Kemarin" },
+              { ikon: BookUser, teks: "Andi Wijaya diangkat sebagai Ketua Pengurus.", waktu: "3 hari lalu" },
+          ]
+        };
+        setData(dashboardData);
+      } catch (error) {
+        console.error("Gagal mengambil data dashboard:", error);
+        // Jika gagal, tetap tampilkan data mock
+        const mockData: DashboardData = {
+          namaKoperasi: "Koperasi Merah Putih",
+          stats: {
+            totalAnggota: { value: 152, change: 5 },
+            totalSimpanan: { value: 850750000, change: 12 },
+            totalPinjaman: { value: 215500000, change: -3 },
+          },
+          tugas: {
+              pendaftarBaru: 3,
+              saranBaru: 5,
+          },
+          anggotaTerbaru: [
+            { nama: "Siti Lestari", tanggalMasuk: "14 Sep 2025" },
+            { nama: "Agus Purnomo", tanggalMasuk: "11 Sep 2025" },
+            { nama: "Rina Wulandari", tanggalMasuk: "08 Sep 2025" },
+          ],
+          aktivitasTerbaru: [
+              { ikon: HandCoins, teks: "Pinjaman baru untuk Budi Santoso telah dicatat.", waktu: "2 jam lalu" },
+              { ikon: Landmark, teks: "Setoran sukarela dari Alviansyah Burhani diterima.", waktu: "Kemarin" },
+              { ikon: BookUser, teks: "Andi Wijaya diangkat sebagai Ketua Pengurus.", waktu: "3 hari lalu" },
+          ]
+        };
+        setData(mockData);
+      } finally {
+        setLoading(false);
+      }
     };
 
-    const timer = setTimeout(fetchData, 500);
-    return () => clearTimeout(timer);
+    fetchDashboardData();
   }, []);
 
   // Skeleton kecil
