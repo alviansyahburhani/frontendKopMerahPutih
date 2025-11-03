@@ -1,26 +1,166 @@
 // services/public.service.ts
 import { api, parseApiError } from '@/lib/api';
-import { CreateGuestBookDto, GuestBookEntry } from '@/types/api.types';
+import { 
+  CreateGuestBookDto, 
+  GuestBookEntry,
+  News,
+  PaginatedNewsResult,
+  ApiErrorResponse 
+} from '@/types/api.types';
+import axios, { AxiosError } from 'axios';
 
+export interface Product {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  price: number;
+  unit: string | null;
+  sku: string | null;
+  imageUrl: string | null;
+  isAvailable: boolean;
+  category: {
+    name: string;
+    slug: string;
+  };
+}
+
+export interface PaginatedProductsResult {
+  data: Product[];
+  meta: {
+    currentPage: number;
+    perPage: number;
+    totalItems: number;
+    totalPages: number;
+  };
+}
+
+// Helper 'handleRequest' Bawaan Anda (untuk client-side)
 async function handleRequest<T>(request: Promise<{ data: T }>): Promise<T> {
-    try {
-      const { data } = await request;
-      return data;
-    } catch (error) {
-      throw parseApiError(error);
-    }
+  try {
+    const { data } = await request;
+    return data;
+  } catch (error) {
+    throw parseApiError(error);
   }
+}
+
+// [PERBAIKAN] Helper untuk request Server-Side
+async function handleServerRequest<T>(
+  host: string, // Ini adalah 'kerenjaya.localhost:3000'
+  path: string, 
+  params?: any
+): Promise<T> {
+  
+  // 1. Tentukan URL Backend. Saat dipanggil dari server, kita SELALU
+  //    menggunakan 'localhost:3002' agar tidak error ENOTFOUND.
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+  
+  // [FIX] Ganti domain di apiUrl (jika bukan localhost) menjadi 'localhost'
+  const baseUrl = apiUrl.replace(/^(http:\/\/)[^:]+/, '$1localhost'); 
+
+  // 2. Buat header 'Origin' dan 'Host' manual.
+  //    TenancyMiddleware di backend akan membaca header ini.
+  const requestHeaders = {
+    'Origin': `http://${host}`, // -> "Origin: http://kerenjaya.localhost:3000"
+    'Host': host,               // -> "Host: kerenjaya.localhost:3000"
+  };
+
+  try {
+    // 3. Lakukan panggilan ke 'localhost:3002' dengan header kustom
+    const response = await axios.get<T>(`${baseUrl}${path}`, { 
+      params,
+      headers: requestHeaders // <-- [FIX] Header sekarang dikirim
+    });
+    return response.data;
+  } catch (error) {
+    // Logika error handling Anda
+    const err = error as AxiosError;
+    
+    // [FIX] Tangani error ENOTFOUND dengan lebih jelas
+    if (err.code === 'ENOTFOUND' || err.code === 'ECONNRESET') {
+       throw {
+         message: `[Server Fetch Error] Gagal terhubung ke backend di ${baseUrl}. Error: ${err.message}`,
+         statusCode: 500,
+       } as ApiErrorResponse;
+    }
+    
+    if (err.response) {
+      const apiError = err.response.data as any;
+      throw {
+        message: apiError.message || 'Server error',
+        statusCode: apiError.statusCode || 500,
+      } as ApiErrorResponse;
+    }
+
+    throw {
+      message: err.message,
+      statusCode: 500,
+    } as ApiErrorResponse;
+  }
+}
 
 export const publicService = {
-    /**
-     * Mengirim data buku tamu (Publik)
-     * Endpoint: POST /guest-book
-     */
-    createGuestBookEntry: (
-      dto: CreateGuestBookDto,
-    ): Promise<GuestBookEntry> => {
-      // Perhatikan: ini memanggil 'api' (axios instance) yang sudah
-      // di-setup di lib/apiService.ts untuk menangani subdomain secara otomatis.
-      return handleRequest(api.post<GuestBookEntry>('/guest-book', dto));
-    },
+
+
+  // Untuk 'use client' components seperti landing page
+  getPublishedNewsClient: (page = 1, limit = 10): Promise<PaginatedNewsResult> => {
+    // Menggunakan 'api' (dari lib/api) yang otomatis menangani subdomain
+    return handleRequest(
+      api.get<PaginatedNewsResult>('/articles', {
+        params: { page, limit },
+      })
+    );
+  },
+  
+  // --- Service Produk (Client-Side) ---
+  getPublishedProductsClient: (page = 1, limit = 10): Promise<PaginatedProductsResult> => {
+    // Menggunakan 'api' (dari lib/api)
+    return handleRequest(
+      api.get<PaginatedProductsResult>('/products', {
+        params: { page, limit },
+      })
+    );
+  },
+
+
+
+  /**
+   * Mengirim data buku tamu (Publik)
+   * Dijalankan di Client, jadi 'api' (dari lib/api) aman digunakan
+   */
+  createGuestBookEntry: (
+    dto: CreateGuestBookDto,
+  ): Promise<GuestBookEntry> => {
+    return handleRequest(api.post<GuestBookEntry>('/guest-book', dto));
+  },
+
+  // ===============================================
+  // SERVICE PUBLIK BERITA (ARTICLES)
+  // ===============================================
+
+  /**
+   * [Berita] Mengambil artikel yang sudah terbit (paginasi)
+   * Dijalankan di Server, butuh 'host'
+   */
+  getPublishedNews: (page = 1, limit = 10, host: string): Promise<PaginatedNewsResult> => {
+    // Gunakan handleServerRequest
+    return handleServerRequest<PaginatedNewsResult>(
+      host, 
+      '/articles', 
+      { page, limit }
+    );
+  },
+
+  /**
+   * [Berita] Mengambil satu artikel terbit berdasarkan slug
+   * Dijalankan di Server, butuh 'host'
+   */
+  getNewsBySlug: (slug: string, host: string): Promise<News> => {
+    // Gunakan handleServerRequest
+    return handleServerRequest<News>(
+      host, 
+      `/articles/${slug}`
+    );
+  },
 };
