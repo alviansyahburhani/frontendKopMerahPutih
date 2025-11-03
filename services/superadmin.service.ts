@@ -53,6 +53,22 @@ export const superAdminService = {
   },
 
   /**
+   * Menonaktifkan (suspend) tenant.
+   * Endpoint: POST /tenants/{id}/suspend
+   */
+  suspendTenant: (tenantId: string): Promise<Tenant> => {
+    return handleRequest(adminApi.post<Tenant>(`/tenants/${tenantId}/suspend`));
+  },
+
+  /**
+   * Mengaktifkan kembali tenant yang di-suspend.
+   * Endpoint: POST /tenants/{id}/activate
+   */
+  activateTenant: (tenantId: string): Promise<Tenant> => {
+    return handleRequest(adminApi.post<Tenant>(`/tenants/${tenantId}/activate`));
+  },
+  
+  /**
    * Menghapus tenant (koperasi) secara permanen.
    * Endpoint: DELETE /tenants/{id}
    */

@@ -1,112 +1,276 @@
-// app/(superadmin)/superadmin/tenants/page.tsx
-'use client';
+// Salin dan Timpa seluruh kode di:
+// frontendKopMerahPutih-loginsuperadmin/app/(superadmin)/superadmin/tenants/page.tsx
 
-import { useEffect, useState } from 'react';
-import { superAdminService } from '@/services/superadmin.service';
-import { Tenant } from '@/types/api.types';
-import { parseApiError } from '@/lib/adminApi';
+"use client";
 
-export default function ManajemenKoperasiPage() {
+import React, { useState, useEffect } from "react";
+import { Tenant } from "@/types/api.types";
+import { superAdminService } from "@/services/superadmin.service"; // <-- Impor service Anda
+import { toast } from "react-hot-toast";
+import { AxiosError } from "axios";
+import {
+  FiEye,
+  FiTrash2,
+  FiAlertTriangle,
+  FiPause, // <-- Tambahkan ini
+  FiPlay,
+} from "react-icons/fi";
+import AdminPageHeader from "@/components/AdminPageHeader";
+import TenantDetailModal from "@/components/TenantDetailModal"; // <-- Impor modal baru
+
+// Helper untuk Badge Status
+const StatusBadge: React.FC<{ status: Tenant["status"] }> = ({ status }) => {
+  const statusColors = {
+    ACTIVE: "bg-green-100 text-green-800",
+    PENDING: "bg-yellow-100 text-yellow-800",
+    SUSPENDED: "bg-red-100 text-red-800",
+  };
+  const statusText = {
+    ACTIVE: "Aktif",
+    PENDING: "Menunggu Persetujuan",
+    SUSPENDED: "Ditangguhkan/Ditolak",
+  };
+
+  return (
+    <span
+      className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+        statusColors[status] || "bg-gray-100 text-gray-800"
+      }`}
+    >
+      {statusText[status] || status}
+    </span>
+  );
+};
+
+export default function ManajemenTenantPage() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
 
-  const fetchTenants = async () => {
+  const fetchAllTenants = async () => {
     try {
       setLoading(true);
-      setError(null); // Reset error setiap kali fetch
-      const data = await superAdminService.getAllTenants();
+      const data = await superAdminService.getAllTenants(); // <-- Panggil service Anda
       setTenants(data);
-    } catch (err) {
-      // PERBAIKAN 2: Tangani jika 'message' adalah array
-      const apiError = parseApiError(err);
-      if (Array.isArray(apiError.message)) {
-        setError(apiError.message.join(', '));
-      } else {
-        setError(apiError.message);
+    } catch (error: unknown) {
+      console.error(error);
+      let errorMessage = "Gagal memuat daftar koperasi";
+      if (error instanceof AxiosError) {
+        errorMessage = error.response?.data?.message || error.message;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
       }
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchTenants();
+    fetchAllTenants();
   }, []);
 
-  const handleDelete = async (tenantId: string) => {
-    if (confirm('Apakah Anda yakin ingin menghapus koperasi ini secara permanen?')) {
-      try {
-        await superAdminService.deleteTenant(tenantId);
-        alert('Koperasi berhasil dihapus.');
-        // Refresh daftar tenant
-        fetchTenants(); 
-      } catch (err) {
-        alert(`Gagal menghapus: ${parseApiError(err).message}`);
+  const handleDelete = async (tenantId: string, tenantName: string) => {
+    if (
+      !window.confirm(
+        `APAKAH ANDA YAKIN ingin menghapus koperasi "${tenantName}" (${tenantId})?\n\nTindakan ini tidak dapat dibatalkan dan akan menghapus semua data terkait.`
+      )
+    ) {
+      return;
+    }
+    try {
+      await superAdminService.deleteTenant(tenantId); // <-- Panggil service Anda
+      toast.success(`Koperasi "${tenantName}" berhasil dihapus.`);
+      // Refresh daftar
+      fetchAllTenants();
+    } catch (error: unknown) {
+      console.error(error);
+      let errorMessage = "Gagal menghapus koperasi";
+      if (error instanceof AxiosError) {
+        errorMessage = error.response?.data?.message || error.message;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
       }
+      toast.error(errorMessage);
     }
   };
 
-  if (loading) {
-    return <div>Loading data koperasi...</div>;
-  }
+  // --- TAMBAHKAN KODE INI ---
+  const handleSuspend = async (tenant: Tenant) => {
+    const tenantName = tenant.registration?.cooperativeName || tenant.name;
+    if (
+      !window.confirm(
+        `Apakah Anda yakin ingin MENONAKTIFKAN koperasi "${tenantName}"?`
+      )
+    ) {
+      return;
+    }
+    try {
+      await superAdminService.suspendTenant(tenant.id);
+      toast.success(`Koperasi "${tenantName}" berhasil dinonaktifkan.`);
+      fetchAllTenants(); // Refresh data
+    } catch (error: unknown) {
+      // (Kita gunakan 'unknown' agar lolos ESLint)
+      console.error(error);
+      let errorMessage = "Gagal menonaktifkan koperasi";
+      if (error instanceof AxiosError) {
+        errorMessage = error.response?.data?.message || error.message;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      toast.error(errorMessage);
+    }
+  };
 
-  if (error) {
-    return <div className="text-red-500">Error: {error}</div>;
-  }
+  const handleActivate = async (tenant: Tenant) => {
+    const tenantName = tenant.registration?.cooperativeName || tenant.name;
+    if (
+      !window.confirm(
+        `Apakah Anda yakin ingin MENGAKTIFKAN KEMBALI koperasi "${tenantName}"?`
+      )
+    ) {
+      return;
+    }
+    try {
+      await superAdminService.activateTenant(tenant.id);
+      toast.success(`Koperasi "${tenantName}" berhasil diaktifkan.`);
+      fetchAllTenants(); // Refresh data
+    } catch (error: unknown) {
+      // (Kita gunakan 'unknown' agar lolos ESLint)
+      console.error(error);
+      let errorMessage = "Gagal mengaktifkan koperasi";
+      if (error instanceof AxiosError) {
+        errorMessage = error.response?.data?.message || error.message;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      toast.error(errorMessage);
+    }
+  };
 
   return (
-    <div>
-      <h1 className="text-2xl font-semibold text-gray-800 mb-4">Manajemen Koperasi</h1>
-      
-      <div className="bg-white shadow-md rounded-lg overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Koperasi</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PIC</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subdomain</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {tenants.length === 0 ? (
+    <div className="container mx-auto p-4 md:p-6">
+      <AdminPageHeader
+        title="Manajemen Koperasi"
+        description="Kelola semua koperasi yang terdaftar di platform."
+      />
+
+      {loading && <div className="text-center py-10">Memuat data...</div>}
+
+      {!loading && tenants.length === 0 && (
+        <div className="text-center py-10 bg-white shadow rounded-lg">
+          <FiAlertTriangle className="mx-auto text-5xl text-yellow-500" />
+          <p className="mt-4 text-gray-600">
+            Belum ada koperasi yang terdaftar.
+          </p>
+        </div>
+      )}
+
+      {!loading && tenants.length > 0 && (
+        <div className="overflow-x-auto shadow rounded-lg">
+          <table className="min-w-full bg-white">
+            <thead className="bg-gray-50">
               <tr>
-                <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                  Tidak ada data koperasi.
-                </td>
+                <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Nama Koperasi
+                </th>
+                <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Subdomain
+                </th>
+                <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  PIC
+                </th>
+                <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Aksi
+                </th>
               </tr>
-            ) : (
-              tenants.map((tenant) => (
-                <tr key={tenant.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{tenant.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{tenant.picName} ({tenant.picEmail})</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{tenant.subdomain}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      tenant.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
-                      tenant.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {tenant.status}
-                    </span>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {tenants.map((tenant) => (
+                <tr key={tenant.id} className="hover:bg-gray-50">
+                  <td className="py-4 px-4 whitespace-nowrap font-medium">
+                    {/* Ambil nama dari 'registration' jika ada, jika tidak (data lama) pakai 'tenant.name' */}
+                    {tenant.registration
+                      ? tenant.registration.cooperativeName
+                      : tenant.name}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button 
-                      onClick={() => handleDelete(tenant.id)}
-                      className="text-red-600 hover:text-red-900"
-                      disabled={tenant.status === 'PENDING'} // Opsional: jangan hapus jika pending
+                  <td className="py-4 px-4 whitespace-nowrap text-gray-700">
+                    {tenant.subdomain}
+                  </td>
+                  <td className="py-4 px-4 whitespace-nowrap">
+                    <StatusBadge status={tenant.status} />
+                  </td>
+                  <td className="py-4 px-4 whitespace-nowrap text-gray-700">
+                    {/* Ambil PIC dari 'registration' */}
+                    {tenant.registration
+                      ? tenant.registration.picFullName
+                      : "(Data Manual)"}
+                  </td>
+                  <td className="py-4 px-4 whitespace-nowrap text-sm font-medium flex items-center gap-3">
+                    <button
+                      onClick={() => setSelectedTenant(tenant)}
+                      className="text-blue-600 hover:text-blue-800 flex items-center"
+                      title="Lihat Detail"
                     >
-                      Hapus
+                      <FiEye size={18} />
                     </button>
+                    {tenant.status === 'ACTIVE' && (
+                      <button
+                        onClick={() => handleSuspend(tenant)}
+                        className="text-yellow-600 hover:text-yellow-800"
+                        title="Nonaktifkan Koperasi"
+                      >
+                        <FiPause size={18} />
+                      </button>
+                    )}
+
+                    {/* Tampilkan Tombol AKTIFKAN jika status SUSPENDED */}
+                    {tenant.status === 'SUSPENDED' && (
+                      <button
+                        onClick={() => handleActivate(tenant)}
+                        className="text-green-600 hover:text-green-800"
+                        title="Aktifkan Koperasi"
+                      >
+                        <FiPlay size={18} />
+                      </button>
+                    )}
+                    {/* Tampilkan tombol Hapus hanya jika status BUKAN PENDING */}
+                    {tenant.status !== "PENDING" ? (
+                      <button
+                        onClick={() =>
+                          handleDelete(
+                            tenant.id,
+                            tenant.registration?.cooperativeName || tenant.name
+                          )
+                        }
+                        className="text-red-600 hover:text-red-800"
+                        title="Hapus Koperasi"
+                      >
+                        <FiTrash2 size={18} />
+                      </button>
+                    ) : (
+                      <span title="Setujui/Tolak di halaman Persetujuan">
+                        <FiTrash2 size={18} className="text-gray-300" />
+                      </span>
+                    )}
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Render Modal Detail */}
+      {selectedTenant && (
+        <TenantDetailModal
+          tenant={selectedTenant}
+          onClose={() => setSelectedTenant(null)}
+        />
+      )}
     </div>
   );
 }

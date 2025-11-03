@@ -5,8 +5,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Building, Settings, LogOut, X, ShieldCheck,
-  Newspaper, // Ikon baru untuk Berita
-  Image as ImageIcon // Ikon baru untuk Galeri (gunakan alias jika nama konflik)
 } from "lucide-react";
 import clsx from "clsx";
 import { superAdminAuthService } from '@/services/superAdminAuth.service';
@@ -15,8 +13,6 @@ const navLinks = [
   { href: "/superadmin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/superadmin/persetujuan-koperasi", label: "Persetujuan Koperasi", icon: Building },
   { href: "/superadmin/tenants", label: "Manajemen Koperasi", icon: Building },
-  { href: "/superadmin/berita", label: "Manajemen Berita", icon: Newspaper },
-  { href: "/superadmin/galeri", label: "Manajemen Galeri", icon: ImageIcon },
   { href: "/superadmin/settings", label: "Pengaturan Platform", icon: Settings },
 ];
 
