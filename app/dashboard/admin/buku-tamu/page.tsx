@@ -251,15 +251,47 @@ export default function BukuTamuPage() {
       />
       
       <div className="bg-white rounded-xl shadow-lg border border-gray-100">
-        
-        {/* --- KOP SURAT (Opsional) --- */}
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-lg font-bold text-center uppercase tracking-wider text-gray-700">
-            Buku Tamu
+            Buku Daftar Notulen Rapat Pengurus
           </h2>
-          {/* ... (Info Koperasi) ... */}
+          <div className="mt-6 max-w-4xl mx-auto grid grid-cols-2 gap-x-12 text-sm">
+            <div className="space-y-2">
+              <div className="flex justify-between border-b border-dotted">
+                <span className="font-semibold text-gray-500">KOPERASI</span>
+                <span className="text-gray-800 font-medium">
+                  MERAH PUTIH JAYA
+                </span>
+              </div>
+              <div className="flex justify-between border-b border-dotted">
+                <span className="font-semibold text-gray-500">KAB / KOTA</span>
+                <span className="text-gray-800 font-medium">KOTA MAKASSAR</span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between border-b border-dotted">
+                <span className="font-semibold text-gray-500">
+                  NO. BADAN HUKUM
+                </span>
+                <span className="text-gray-800 font-medium">
+                  123/BH/IV.2/IX/2025
+                </span>
+              </div>
+              <div className="flex justify-between border-b border-dotted">
+                <span className="font-semibold text-gray-500">
+                  TANGGAL CETAK
+                </span>
+                <span className="text-gray-800 font-medium">
+                  {new Date().toLocaleDateString("id-ID", {
+                    day: "2-digit",
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
-        {/* ------------------------------------------- */}
 
         <div className="p-6">
           <h2 className="text-lg font-bold text-gray-700">Daftar Pesan Masuk</h2>

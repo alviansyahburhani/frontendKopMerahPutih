@@ -440,10 +440,82 @@ export type UpdateNewsDto = Partial<CreateNewsDto>;
 
 
 
+// DTO untuk MEMBUAT Notulen Rapat Anggota (Buku 07)
+// Sesuai DTO backend (gabungan error + form)
+export interface CreateMemberMeetingNoteDto {
+  meetingDate: string; // YYYY-MM-DD
+  location: string;
+  leader: string;
+  meetingType: string; // "Rapat Anggota Tahunan (RAT)", "RALB", dll.
+  totalMembers: number; // <-- INI DIA PERBAIKANNYA
+  agendaAndDecision: string;
+}
+
+// DTO untuk MENGUPDATE Notulen Rapat Anggota (Buku 07)
+export type UpdateMemberMeetingNoteDto = Partial<CreateMemberMeetingNoteDto>;
+
+// Tipe data respons penuh untuk Notulen Rapat Anggota
+export interface MemberMeetingNoteResponse {
+  id: string;
+  meetingDate: string; // ISO String
+  location: string;
+  leader: string;
+  meetingType: string;
+  totalMembers: number; // <-- INI DIA PERBAIKANNYA
+  agendaAndDecision: string;
+  documentUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+  tenantId: string;
+}
+
+
+
 export type PendingRegistration = Omit<MemberRegistration, 'hashedPassword'>;
 
 export const adminService = {
 
+  /**
+   * (BUKU 07) Mengambil semua notulen rapat anggota.
+   * Endpoint: GET /member-meeting-notes
+   */
+  getMemberMeetingNotes: (): Promise<MemberMeetingNoteResponse[]> => {
+    return handleRequest(api.get<MemberMeetingNoteResponse[]>('/member-meeting-notes'));
+  },
+
+  /**
+   * (BUKU 07) Membuat notulen rapat anggota baru.
+   * Endpoint: POST /member-meeting-notes
+   */
+  createMemberMeetingNote: (dto: CreateMemberMeetingNoteDto): Promise<MemberMeetingNoteResponse> => {
+    return handleRequest(api.post<MemberMeetingNoteResponse>('/member-meeting-notes', dto));
+  },
+
+  /**
+   * (BUKU 07) Mengupdate notulen rapat anggota.
+   * Endpoint: PATCH /member-meeting-notes/:id
+   */
+  updateMemberMeetingNote: (id: string, dto: UpdateMemberMeetingNoteDto): Promise<MemberMeetingNoteResponse> => {
+    return handleRequest(api.patch<MemberMeetingNoteResponse>(`/member-meeting-notes/${id}`, dto));
+  },
+
+  /**
+   * (BUKU 07) Menghapus notulen rapat anggota.
+   * Endpoint: DELETE /member-meeting-notes/:id
+   */
+  deleteMemberMeetingNote: (id: string): Promise<{ message: string }> => {
+    return handleRequest(api.delete<{ message: string }>(`/member-meeting-notes/${id}`));
+  },
+
+  /**
+   * (BUKU 07) Mengunggah dokumen notulen rapat anggota.
+   * Endpoint: POST /member-meeting-notes/:id/document
+   */
+  uploadMemberMeetingNoteDocument: (id: string, file: File): Promise<MemberMeetingNoteResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return handleRequest(api.post<MemberMeetingNoteResponse>(`/member-meeting-notes/${id}/document`, formData));
+  },
 
   /**
    * (BUKU 14) Mengambil semua Anjuran Pejabat.
