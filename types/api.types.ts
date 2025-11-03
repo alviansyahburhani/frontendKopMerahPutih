@@ -8,7 +8,52 @@ export interface ApiErrorResponse {
   error: string;
 }
 
+export interface TenantRegistration {
+  id: string;
+  cooperativeName: string;
+  skAhuKoperasi: string | null;
+  province: string;
+  city: string;
+  district: string;
+  village: string;
+  alamatLengkap: string;
+  petaLokasi: string | null;
+  picFullName: string;
+  picNik: string;
+  picGender: 'MALE' | 'FEMALE';
+  picPlaceOfBirth: string;
+  picDateOfBirth: string; // Tipe string karena JSON
+  picOccupation: string;
+  picAddress: string;
+  picPhoneNumber: string;
+  email: string; // Email PIC (untuk login)
+  // hashedPpassword tidak akan dikirim ke frontend
+  dokPengesahanPendirian: string | null;
+  dokDaftarUmum: string | null;
+  dokAkteNotaris: string | null;
+  dokNpwpKoperasi: string | null;
+  tenantId: string;
+}
+
+export interface Tenant {
+  id: string;
+  name: string;
+  subdomain: string;
+  schemaName: string;
+  status: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
+  createdAt: string; // Tipe string karena JSON
+  updatedAt: string; // Tipe string karena JSON
+  
+  registration?: TenantRegistration | null; 
+}
+
 // === Auth ===
+export interface SuperAdminUser {
+  userId: string;
+  email: string;
+  role: 'SuperAdmin'; // Role-nya spesifik 'SuperAdmin'
+  fullName: string;
+}
 export interface LoginDto {
   email: string;
   password: string;
