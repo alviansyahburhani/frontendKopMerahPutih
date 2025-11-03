@@ -385,6 +385,60 @@ export interface RespondOfficialRecommendationDto {
 }
 
 
+/**
+ * Tipe data lengkap Berita (Artikel) yang dikembalikan oleh backend
+ * Sesuai dengan model Prisma `Article`
+ */
+export interface News { 
+  id: string;
+  title: string;
+  slug: string;
+  content: string | null;
+  imageUrl: string | null; 
+  sourceLink: string | null; // <-- PASTIKAN 'sourceLink'
+  status: 'PUBLISHED' | 'DRAFT' | 'ARCHIVED'; 
+  publishedAt: string | null; 
+  createdAt: string;
+  updatedAt: string;
+  excerpt: string | null; // <-- TAMBAHKAN 'excerpt'
+
+  author?: {
+    fullName: string;
+  };
+}
+
+/**
+ * Tipe data untuk hasil paginasi dari backend
+ */
+export interface PaginatedNewsResult {
+  data: News[];
+  meta: {
+    currentPage: number;
+    perPage: number;
+    totalItems: number;
+    totalPages: number;
+  };
+}
+
+/**
+ * DTO untuk MEMBUAT artikel berita baru.
+ * Sesuai dengan backend/src/articles/dto/create-article.dto.ts
+ */
+export interface CreateNewsDto {
+  title: string;
+  content: string; // <-- PASTIKAN WAJIB (bukan content?)
+  status: 'PUBLISHED' | 'DRAFT' | 'ARCHIVED';
+  sourceLink?: string; // <-- PASTIKAN 'sourceLink'
+  excerpt?: string;
+}
+
+/**
+ * DTO untuk MENGUPDATE artikel berita.
+ * Sesuai dengan backend/src/articles/dto/update-article.dto.ts
+ */
+export type UpdateNewsDto = Partial<CreateNewsDto>;
+
+
 
 export type PendingRegistration = Omit<MemberRegistration, 'hashedPassword'>;
 
@@ -795,7 +849,60 @@ terminateSupervisoryPosition: (id: string): Promise<{ message: string }> => {
    */
   deleteMemberSuggestion: (id: string): Promise<{ message: string }> => {
     return handleRequest(api.delete<{ message: string }>(`/member-suggestion/${id}`));
-  }  
+  },
+
+
+
+
+  /**
+   * [Berita] Mengambil semua artikel (termasuk draft) untuk Admin
+   * Endpoint: GET /articles/all
+   */
+  getAllNews: (): Promise<PaginatedNewsResult> => {
+    return handleRequest(api.get<PaginatedNewsResult>('/articles/all'));
+  },
+
+  /**
+   * [Berita] Mengambil artikel yang sudah terbit (untuk publik/anggota)
+   * Endpoint: GET /articles
+   */
+  getPublishedNews: (): Promise<PaginatedNewsResult> => {
+    return handleRequest(api.get<PaginatedNewsResult>('/articles'));
+  },
+
+  /**
+   * [Berita] Membuat artikel baru
+   * Endpoint: POST /articles
+   */
+  createNews: (dto: CreateNewsDto): Promise<News> => {
+    return handleRequest(api.post<News>('/articles', dto));
+  },
+
+  /**
+   * [Berita] Mengupdate artikel
+   * Endpoint: PATCH /articles/:id
+   */
+  updateNews: (id: string, dto: UpdateNewsDto): Promise<News> => {
+    return handleRequest(api.patch<News>(`/articles/${id}`, dto));
+  },
+
+  /**
+   * [Berita] Menghapus artikel
+   * Endpoint: DELETE /articles/:id
+   */
+  deleteNews: (id: string): Promise<void> => { 
+    return handleRequest(api.delete<void>(`/articles/${id}`));
+  },
+
+  /**
+   * [Berita] Mengunggah gambar utama artikel
+   * Endpoint: POST /articles/:id/image
+   */
+  uploadNewsImage: (id: string, file: File): Promise<News> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return handleRequest(api.post<News>(`/articles/${id}/image`, formData));
+  },
 
 
 };
