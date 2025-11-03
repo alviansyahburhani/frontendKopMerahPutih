@@ -250,3 +250,40 @@ export interface UpdateAgendaExpeditionDto {
   subject?: string;
   // notes?: string; // <-- HAPUS BARIS INI
 }
+
+
+/**
+ * Tipe data lengkap Artikel/Berita yang dikembalikan oleh backend
+ * (Sesuai model Prisma `Article` & DTO backend)
+ */
+export interface News {
+  id: string;
+  title: string;
+  slug: string;
+  content: string | null;
+  imageUrl: string | null;
+  sourceLink: string | null;
+  status: 'PUBLISHED' | 'DRAFT' | 'ARCHIVED';
+  publishedAt: string | null; // ISO Date string
+  createdAt: string;
+  updatedAt: string;
+  excerpt: string | null;
+
+  // Relasi (dari 'include' di backend)
+  author?: {
+    fullName: string;
+  };
+}
+
+/**
+ * Tipe data untuk hasil paginasi artikel dari backend
+ */
+export interface PaginatedNewsResult {
+  data: News[];
+  meta: {
+    currentPage: number;
+    perPage: number;
+    totalItems: number;
+    totalPages: number;
+  };
+}
