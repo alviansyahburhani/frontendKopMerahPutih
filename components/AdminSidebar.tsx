@@ -119,6 +119,7 @@ const JABATAN_MENU_MAP: Record<string, string[]> = {
     // Manajemen Utama
     '/dashboard/admin/daftar-anggota', '/dashboard/admin/daftar-karyawan',
     // Administrasi
+    '/dashboard/admin/daftar-inventaris',
     '/dashboard/admin/buku-tamu', '/dashboard/admin/notulen-rapat-anggota',
     '/dashboard/admin/notulen-rapat-pengurus', '/dashboard/admin/notulen-rapat-pengawas',
     '/dashboard/admin/saran-anggota', '/dashboard/admin/saran-pengawas',

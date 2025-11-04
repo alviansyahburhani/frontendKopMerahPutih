@@ -6,6 +6,7 @@ import AdminPageHeader from "@/components/AdminPageHeader";
 import Button from "@/components/Button";
 import { PlusCircle, Search, Package, DollarSign, Download, X, Edit } from "lucide-react";
 import clsx from "clsx";
+import { inventoryApi, InventoryItem, InventoryCondition } from "@/lib/apiService";
 
 // --- Tipe Data ---
 type Inventaris = {
@@ -19,14 +20,94 @@ type Inventaris = {
     nilaiPerolehan: number;
     kondisi: 'Baik' | 'Perlu Perbaikan' | 'Rusak';
     lokasi: string;
+    catatan: string | null;
 };
 
-// --- Data Contoh ---
-const mockInventaris: Inventaris[] = [
-    { id: 'inv001', kodeBarang: 'KMP-LP-01', namaBarang: 'Laptop Lenovo ThinkPad', jenis: 'Elektronik', tanggalPerolehan: '2025-01-10', jumlah: 3, satuan: 'Unit', nilaiPerolehan: 12500000, kondisi: 'Baik', lokasi: 'Ruang Kantor' },
-    { id: 'inv002', kodeBarang: 'KMP-PR-01', namaBarang: 'Printer Epson L3210', jenis: 'Elektronik', tanggalPerolehan: '2025-01-10', jumlah: 1, satuan: 'Unit', nilaiPerolehan: 2500000, kondisi: 'Baik', lokasi: 'Ruang Kantor' },
-    { id: 'inv003', kodeBarang: 'KMP-MJ-01', namaBarang: 'Meja Kantor', jenis: 'Perabotan', tanggalPerolehan: '2024-12-20', jumlah: 5, satuan: 'Buah', nilaiPerolehan: 750000, kondisi: 'Baik', lokasi: 'Ruang Rapat' },
-];
+type InventoryNotesMetadata = {
+    jenis?: Inventaris['jenis'];
+    satuan?: string;
+    rawNotes: string | null;
+};
+
+const INVENTORY_NOTES_PREFIX = '__INVENTORY_META__';
+
+const decodeInventoryNotes = (notes?: string | null): InventoryNotesMetadata => {
+    if (!notes) {
+        return { rawNotes: null };
+    }
+
+    if (notes.startsWith(INVENTORY_NOTES_PREFIX)) {
+        const payload = notes.slice(INVENTORY_NOTES_PREFIX.length);
+        try {
+            const parsed = JSON.parse(payload);
+            return {
+                jenis: typeof parsed.jenis === 'string' ? parsed.jenis : undefined,
+                satuan: typeof parsed.satuan === 'string' ? parsed.satuan : undefined,
+                rawNotes: typeof parsed.rawNotes === 'string' || parsed.rawNotes === null ? parsed.rawNotes : null,
+            };
+        } catch (error) {
+            console.warn('Gagal mem-parsing metadata catatan inventaris:', error);
+        }
+    }
+
+    return { rawNotes: notes };
+};
+
+const encodeInventoryNotes = ({
+    jenis,
+    satuan,
+    rawNotes,
+}: {
+    jenis: Inventaris['jenis'];
+    satuan: string;
+    rawNotes?: string | null;
+}) => {
+    return `${INVENTORY_NOTES_PREFIX}${JSON.stringify({
+        jenis,
+        satuan,
+        rawNotes: rawNotes ?? null,
+    })}`;
+};
+
+const mapApiConditionToLabel = (condition: InventoryCondition): Inventaris['kondisi'] => {
+    switch (condition) {
+        case 'PERLU_PERBAIKAN':
+            return 'Perlu Perbaikan';
+        case 'RUSAK':
+            return 'Rusak';
+        default:
+            return 'Baik';
+    }
+};
+
+const mapLabelConditionToApi = (label: Inventaris['kondisi']): InventoryCondition => {
+    switch (label) {
+        case 'Perlu Perbaikan':
+            return 'PERLU_PERBAIKAN';
+        case 'Rusak':
+            return 'RUSAK';
+        default:
+            return 'BAIK';
+    }
+};
+
+const mapInventoryItemToState = (item: InventoryItem): Inventaris => {
+    const metadata = decodeInventoryNotes(item.notes);
+
+    return {
+        id: item.id,
+        kodeBarang: item.itemCode,
+        namaBarang: item.itemName,
+        jenis: metadata.jenis ?? 'Lainnya',
+        tanggalPerolehan: item.purchaseDate.split('T')[0],
+        jumlah: item.quantity,
+        satuan: metadata.satuan ?? 'Unit',
+        nilaiPerolehan: item.unitPrice,
+        kondisi: mapApiConditionToLabel(item.condition),
+        lokasi: item.location ?? '',
+        catatan: metadata.rawNotes ?? null,
+    };
+};
 
 // --- Tipe untuk Form ---
 type InventarisFormData = Omit<Inventaris, 'id'>;
@@ -35,13 +116,39 @@ type InventarisFormState = Omit<InventarisFormData, 'jumlah' | 'nilaiPerolehan'>
     nilaiPerolehan: number | '';
 };
 
+const createInitialInventarisFormData = (): InventarisFormData => ({
+    kodeBarang: `INV-${Date.now().toString().slice(-6)}`,
+    namaBarang: '',
+    jenis: 'Lainnya',
+    tanggalPerolehan: new Date().toISOString().split('T')[0],
+    jumlah: 0,
+    satuan: 'Unit',
+    nilaiPerolehan: 0,
+    kondisi: 'Baik',
+    lokasi: '',
+    catatan: null,
+});
+
+const mapInventarisToFormData = (item: Inventaris): InventarisFormData => ({
+    kodeBarang: item.kodeBarang,
+    namaBarang: item.namaBarang,
+    jenis: item.jenis,
+    tanggalPerolehan: item.tanggalPerolehan,
+    jumlah: item.jumlah,
+    satuan: item.satuan,
+    nilaiPerolehan: item.nilaiPerolehan,
+    kondisi: item.kondisi,
+    lokasi: item.lokasi,
+    catatan: item.catatan,
+});
+
 // ===================================================================
 // KOMPONEN MODAL (Wrapper untuk Form Tambah & Edit)
 // ===================================================================
 const InventarisModal = ({ isOpen, onClose, onSubmit, title, submitText, initialData }: { 
     isOpen: boolean, 
     onClose: () => void, 
-    onSubmit: (data: InventarisFormData) => void, 
+    onSubmit: (data: InventarisFormData) => Promise<void>, 
     title: string, 
     submitText: string,
     initialData: InventarisFormData | null
@@ -71,17 +178,22 @@ const InventarisModal = ({ isOpen, onClose, onSubmit, title, submitText, initial
         }
     };
 
-    const handleSubmit = (e: FormEvent) => {
+    const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
-        if (formData) {
-            const payload: InventarisFormData = {
-                ...formData,
-                jumlah: formData.jumlah === '' ? 0 : Number(formData.jumlah),
-                nilaiPerolehan: formData.nilaiPerolehan === '' ? 0 : Number(formData.nilaiPerolehan),
-            };
-            onSubmit(payload);
+        if (!formData) return;
+
+        const payload: InventarisFormData = {
+            ...formData,
+            jumlah: formData.jumlah === '' ? 0 : Number(formData.jumlah),
+            nilaiPerolehan: formData.nilaiPerolehan === '' ? 0 : Number(formData.nilaiPerolehan),
+        };
+
+        try {
+            await onSubmit(payload);
+            onClose();
+        } catch (error) {
+            console.error('Gagal menyimpan data inventaris:', error);
         }
-        onClose();
     };
 
     if (!isOpen || !formData) return null;
@@ -170,19 +282,39 @@ export default function DaftarInventarisPage() {
     const [filters, setFilters] = useState({ search: '', kondisi: '', jenis: '' });
     const [loading, setLoading] = useState(true);
 
-    // Simulate loading data
     useEffect(() => {
-        const timer = setTimeout(() => {
-            setInventarisList(mockInventaris);
-            setLoading(false);
-        }, 800);
-        return () => clearTimeout(timer);
+        let isMounted = true;
+
+        const fetchInventaris = async () => {
+            try {
+                const items = await inventoryApi.getAll();
+                if (isMounted) {
+                    setInventarisList(items.map(mapInventoryItemToState));
+                }
+            } catch (error) {
+                console.error('Gagal mengambil data inventaris:', error);
+                if (isMounted) {
+                    setInventarisList([]);
+                }
+            } finally {
+                if (isMounted) {
+                    setLoading(false);
+                }
+            }
+        };
+
+        fetchInventaris();
+
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
     const [selectedInventaris, setSelectedInventaris] = useState<Inventaris | null>(null);
     const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+    const [modalInitialData, setModalInitialData] = useState<InventarisFormData | null>(null);
     
     const ringkasanInventaris = useMemo(() => ({
         totalNilai: inventarisList.reduce((acc, item) => acc + (item.nilaiPerolehan * item.jumlah), 0),
@@ -191,20 +323,53 @@ export default function DaftarInventarisPage() {
 
     const handleOpenModal = (mode: 'add' | 'edit', item?: Inventaris) => {
         setModalMode(mode);
-        setSelectedInventaris(item || null);
+        if (mode === 'add') {
+            setModalInitialData(createInitialInventarisFormData());
+            setSelectedInventaris(null);
+        } else if (item) {
+            setSelectedInventaris(item);
+            setModalInitialData(mapInventarisToFormData(item));
+        } else {
+            setModalInitialData(null);
+            setSelectedInventaris(null);
+        }
         setIsModalOpen(true);
     };
 
-    const handleSave = (data: InventarisFormData) => {
-        if (modalMode === 'add') {
-            const newItem: Inventaris = { id: `inv-${Date.now()}`, ...data };
-            setInventarisList(prev => [newItem, ...prev]);
-        } else if (selectedInventaris && modalMode === 'edit') {
-            setInventarisList(prev => 
-                prev.map(item => item.id === selectedInventaris.id ? { ...selectedInventaris, ...data } : item)
-            );
-        }
+    const handleCloseModal = () => {
         setIsModalOpen(false);
+        setSelectedInventaris(null);
+        setModalInitialData(null);
+    };
+
+    const handleSave = async (data: InventarisFormData) => {
+        const sanitizedLokasi = data.lokasi.trim();
+        const notesPayload = encodeInventoryNotes({
+            jenis: data.jenis,
+            satuan: data.satuan || 'Unit',
+            rawNotes: data.catatan ?? null,
+        });
+
+        const payload = {
+            itemName: data.namaBarang,
+            purchaseDate: data.tanggalPerolehan,
+            quantity: data.jumlah,
+            unitPrice: data.nilaiPerolehan,
+            condition: mapLabelConditionToApi(data.kondisi),
+            location: sanitizedLokasi === '' ? undefined : sanitizedLokasi,
+            notes: notesPayload,
+        };
+
+        if (modalMode === 'add') {
+            const createdItem = await inventoryApi.create(payload);
+            const mapped = mapInventoryItemToState(createdItem);
+            setInventarisList(prev => [mapped, ...prev]);
+        } else if (selectedInventaris && modalMode === 'edit') {
+            const updatedItem = await inventoryApi.update(selectedInventaris.id, payload);
+            const mapped = mapInventoryItemToState(updatedItem);
+            setInventarisList(prev => prev.map(item => item.id === mapped.id ? mapped : item));
+            setSelectedInventaris(mapped);
+        }
     };
 
     const handleFilterChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -234,18 +399,6 @@ export default function DaftarInventarisPage() {
             const { generateInventarisExcel } = await import('@/lib/exportUtils');
             generateInventarisExcel(dataToExport, title);
         }
-    };
-    
-    const initialFormDataForAdd: InventarisFormData = {
-        kodeBarang: `INV-${Date.now().toString().slice(-6)}`,
-        namaBarang: '',
-        jenis: 'Lainnya',
-        tanggalPerolehan: new Date().toISOString().split('T')[0],
-        jumlah: 0,
-        satuan: 'Unit',
-        nilaiPerolehan: 0,
-        kondisi: 'Baik',
-        lokasi: '',
     };
     
     // Skeleton kecil
@@ -483,11 +636,11 @@ export default function DaftarInventarisPage() {
             
             <InventarisModal 
                 isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+                onClose={handleCloseModal}
                 onSubmit={handleSave}
                 title={modalMode === 'add' ? 'Tambah Inventaris Baru' : 'Edit Data Inventaris'}
                 submitText={modalMode === 'add' ? 'Simpan' : 'Simpan Perubahan'}
-                initialData={modalMode === 'add' ? initialFormDataForAdd : selectedInventaris}
+                initialData={modalInitialData}
             />
         </div>
     );
