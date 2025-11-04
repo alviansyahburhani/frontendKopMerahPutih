@@ -7,6 +7,9 @@ import Button from "@/components/Button";
 import { PlusCircle, Search, Package, DollarSign, Download, X, Edit } from "lucide-react";
 import clsx from "clsx";
 import { inventoryApi, InventoryItem, InventoryCondition } from "@/lib/apiService";
+import { authService } from "@/services/auth.service";
+import { adminService } from "@/services/admin.service";
+import { Role } from "@/types/enums";
 
 // --- Tipe Data ---
 type Inventaris = {
@@ -281,6 +284,7 @@ export default function DaftarInventarisPage() {
     const [inventarisList, setInventarisList] = useState<Inventaris[]>([]);
     const [filters, setFilters] = useState({ search: '', kondisi: '', jenis: '' });
     const [loading, setLoading] = useState(true);
+    const [canManageInventaris, setCanManageInventaris] = useState(false);
 
     useEffect(() => {
         let isMounted = true;
@@ -303,7 +307,34 @@ export default function DaftarInventarisPage() {
             }
         };
 
+        const fetchAccessInfo = async () => {
+            try {
+                const [profile, positions] = await Promise.all([
+                    authService.getProfile(),
+                    adminService.getMyActiveBoardPositions(),
+                ]);
+
+                if (!isMounted) {
+                    return;
+                }
+
+                const activeJabatans = positions.map((position) => position.jabatan);
+
+                const isSekretaris =
+                    profile?.role === Role.Pengurus &&
+                    activeJabatans.includes('Sekretaris');
+
+                setCanManageInventaris(Boolean(isSekretaris));
+            } catch {
+                if (!isMounted) {
+                    return;
+                }
+                setCanManageInventaris(false);
+            }
+        };
+
         fetchInventaris();
+        fetchAccessInfo();
 
         return () => {
             isMounted = false;
@@ -322,6 +353,9 @@ export default function DaftarInventarisPage() {
     }), [inventarisList]);
 
     const handleOpenModal = (mode: 'add' | 'edit', item?: Inventaris) => {
+        if (!canManageInventaris) {
+            return;
+        }
         setModalMode(mode);
         if (mode === 'add') {
             setModalInitialData(createInitialInventarisFormData());
@@ -343,6 +377,9 @@ export default function DaftarInventarisPage() {
     };
 
     const handleSave = async (data: InventarisFormData) => {
+        if (!canManageInventaris) {
+            return;
+        }
         const sanitizedLokasi = data.lokasi.trim();
         const notesPayload = encodeInventoryNotes({
             jenis: data.jenis,
@@ -503,9 +540,11 @@ export default function DaftarInventarisPage() {
                 title="Buku Daftar Inventaris"
                 description="Kelola daftar semua aset dan barang milik koperasi."
                 actionButton={
-                    <Button onClick={() => handleOpenModal('add')} variant="primary">
-                        <PlusCircle size={20} /><span>Tambah Inventaris</span>
-                    </Button>
+                    canManageInventaris ? (
+                        <Button onClick={() => handleOpenModal('add')} variant="primary">
+                            <PlusCircle size={20} /><span>Tambah Inventaris</span>
+                        </Button>
+                    ) : null
                 }
             />
             
@@ -602,7 +641,9 @@ export default function DaftarInventarisPage() {
                                     <th className="p-4 font-medium">Tanggal Perolehan</th>
                                     <th className="p-4 font-medium">Jumlah</th>
                                     <th className="p-4 font-medium">Nilai (Rp)</th>
-                                    <th className="p-4 font-medium text-center">Aksi</th>
+                                    {canManageInventaris && (
+                                        <th className="p-4 font-medium text-center">Aksi</th>
+                                    )}
                                 </tr>
                             </thead>
                             <tbody>
@@ -621,11 +662,17 @@ export default function DaftarInventarisPage() {
                                         <td className="p-4">{new Date(item.tanggalPerolehan).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
                                         <td className="p-4">{item.jumlah} {item.satuan}</td>
                                         <td className="p-4">Rp {item.nilaiPerolehan.toLocaleString('id-ID')}</td>
-                                        <td className="p-4 text-center space-x-2">
-                                            <button onClick={() => handleOpenModal('edit', item)} className="p-2 text-green-600 bg-green-100 rounded-full hover:bg-green-200 transition" title="Edit Data">
-                                                <Edit size={20} />
-                                            </button>
-                                        </td>
+                                        {canManageInventaris && (
+                                            <td className="p-4 text-center space-x-2">
+                                                <button
+                                                    onClick={() => handleOpenModal('edit', item)}
+                                                    className="p-2 text-green-600 bg-green-100 rounded-full hover:bg-green-200 transition"
+                                                    title="Edit Data"
+                                                >
+                                                    <Edit size={20} />
+                                                </button>
+                                            </td>
+                                        )}
                                     </tr>
                                 ))}
                             </tbody>
