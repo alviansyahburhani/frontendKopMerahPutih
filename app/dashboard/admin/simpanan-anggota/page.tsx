@@ -48,6 +48,31 @@ type SimpananTransaksi = {
   jumlah: number;
 };
 
+type JenisSimpanan = SimpananTransaksi['jenis'];
+const jenisSimpananOrder: JenisSimpanan[] = ['Pokok', 'Wajib', 'Sukarela'];
+const tanggalFormatOptions: Intl.DateTimeFormatOptions = {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+};
+
+const formatRupiah = (value: number) => {
+  const absolute = Math.abs(value);
+  const formatted = absolute.toLocaleString('id-ID');
+  return `${value < 0 ? '-' : ''}Rp ${formatted}`;
+};
+
+type SimpananSummaryRow = {
+  memberId: string;
+  anggota: string;
+  earliest: Date;
+  latest: Date;
+  totals: Record<JenisSimpanan, number>;
+  total: number;
+};
+
+type SimpananSummaryTotals = Record<JenisSimpanan, number> & { grand: number };
+
 
 
 type NewTransaksiData = {
@@ -424,6 +449,81 @@ export default function SimpananAnggotaPage() {
         });
     }, [filters, transaksiList]);
 
+    const transaksiSummary = useMemo(() => {
+        const anggotaMap = new Map<string, SimpananSummaryRow>();
+
+        filteredTransaksi.forEach((trx) => {
+            const trxDate = new Date(trx.tanggal);
+            if (Number.isNaN(trxDate.getTime())) return;
+            const signedAmount = trx.tipe === 'Setoran' ? trx.jumlah : -trx.jumlah;
+
+            if (!anggotaMap.has(trx.anggota.id)) {
+                anggotaMap.set(trx.anggota.id, {
+                    memberId: trx.anggota.id,
+                    anggota: trx.anggota.nama,
+                    earliest: trxDate,
+                    latest: trxDate,
+                    totals: {
+                        Pokok: 0,
+                        Wajib: 0,
+                        Sukarela: 0,
+                    },
+                    total: 0,
+                });
+            }
+
+            const entry = anggotaMap.get(trx.anggota.id);
+            if (!entry) return;
+
+            entry.anggota = trx.anggota.nama;
+            if (trxDate < entry.earliest) entry.earliest = trxDate;
+            if (trxDate > entry.latest) entry.latest = trxDate;
+            entry.totals[trx.jenis] += signedAmount;
+            entry.total += signedAmount;
+        });
+
+        const rows = Array.from(anggotaMap.values())
+            .map((entry) => ({
+                ...entry,
+                periodeLabel: `${entry.earliest.toLocaleDateString('id-ID', tanggalFormatOptions)} - ${entry.latest.toLocaleDateString('id-ID', tanggalFormatOptions)}`,
+            }))
+            .sort((a, b) => a.earliest.getTime() - b.earliest.getTime());
+
+        const totals = rows.reduce<SimpananSummaryTotals>((acc, row) => {
+            jenisSimpananOrder.forEach((jenis) => {
+                acc[jenis] += row.totals[jenis];
+            });
+            acc.grand += row.total;
+            return acc;
+        }, { Pokok: 0, Wajib: 0, Sukarela: 0, grand: 0 });
+
+        return { rows, totals };
+    }, [filteredTransaksi]);
+
+    const renderJenisBadgeList = (totals: Record<JenisSimpanan, number>) => {
+        const availableJenis = jenisSimpananOrder.filter((jenis) => totals[jenis] !== 0);
+
+        if (availableJenis.length === 0) {
+            return <span className="text-xs text-gray-400">Belum ada transaksi</span>;
+        }
+
+        return (
+            <div className="space-y-1">
+                {availableJenis.map((jenis) => (
+                    <div
+                        key={jenis}
+                        className="flex items-center justify-between rounded-md bg-gray-100 px-2 py-1 text-xs font-medium"
+                    >
+                        <span className="text-gray-700">{jenis}</span>
+                        <span className={totals[jenis] >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
+                            {formatRupiah(totals[jenis])}
+                        </span>
+                    </div>
+                ))}
+            </div>
+        );
+    };
+
     // Skeleton kecil
     const Skeleton = ({ className = "" }: { className?: string }) => (
         <div className={clsx("animate-pulse bg-gray-200 rounded-md", className)} />
@@ -663,6 +763,9 @@ export default function SimpananAnggotaPage() {
         }
     };
     
+    const summaryRows = transaksiSummary.rows;
+    const summaryTotals = transaksiSummary.totals;
+
     return (
         <div>
             <AdminPageHeader
@@ -685,7 +788,7 @@ export default function SimpananAnggotaPage() {
                 <div className="bg-white p-5 rounded-xl shadow-lg border border-gray-100"><div className="flex items-center gap-3"><div className="p-3 bg-green-100 rounded-full"><CalendarClock className="h-6 w-6 text-green-600" /></div><div><p className="text-sm text-gray-500">Total Simpanan Wajib</p><p className="text-xl font-bold text-gray-800">Rp {totalSaldo.wajib.toLocaleString('id-ID')}</p></div></div></div>
                 <div className="bg-white p-5 rounded-xl shadow-lg border border-gray-100"><div className="flex items-center gap-3"><div className="p-3 bg-purple-100 rounded-full"><Gem className="h-6 w-6 text-purple-600" /></div><div><p className="text-sm text-gray-500">Total Simpanan Sukarela</p><p className="text-xl font-bold text-gray-800">Rp {totalSaldo.sukarela.toLocaleString('id-ID')}</p></div></div></div>
             </div>
-            
+
             <div className="bg-white rounded-xl shadow-lg border border-gray-100">
                 <div className="p-6">
                     <div className="flex justify-between items-center mb-4">
@@ -764,6 +867,52 @@ export default function SimpananAnggotaPage() {
                             </tbody>
                         </table>
                     </div>
+
+                    {summaryRows.length === 0 ? (
+                        <div className="mt-10 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-6 text-center text-sm text-gray-500">
+                            Belum ada ringkasan total transaksi untuk filter saat ini.
+                        </div>
+                    ) : (
+                        <div className="mt-10 overflow-x-auto">
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-gray-50 text-gray-600">
+                                    <tr>
+                                        <th className="p-4 font-medium">Periode</th>
+                                        <th className="p-4 font-medium">Anggota</th>
+                                        <th className="p-4 font-medium">Jenis Simpanan</th>
+                                        <th className="p-4 font-medium text-right">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {summaryRows.map((row) => (
+                                        <tr key={row.memberId} className="border-b last:border-b-0">
+                                            <td className="p-4 text-gray-600">{row.periodeLabel}</td>
+                                            <td className="p-4 font-semibold text-gray-800">{row.anggota}</td>
+                                            <td className="p-4 align-top">
+                                                {renderJenisBadgeList(row.totals)}
+                                            </td>
+                                            <td className={`p-4 text-right font-semibold ${row.total >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                {formatRupiah(row.total)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    <tr className="bg-gray-50 font-semibold text-gray-800">
+                                        <td className="p-4" colSpan={2}>Total Keseluruhan</td>
+                                        <td className="p-4 align-top">
+                                            {renderJenisBadgeList({
+                                                Pokok: summaryTotals.Pokok,
+                                                Wajib: summaryTotals.Wajib,
+                                                Sukarela: summaryTotals.Sukarela,
+                                            })}
+                                        </td>
+                                        <td className={`p-4 text-right ${summaryTotals.grand >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                            {formatRupiah(summaryTotals.grand)}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             </div>
 

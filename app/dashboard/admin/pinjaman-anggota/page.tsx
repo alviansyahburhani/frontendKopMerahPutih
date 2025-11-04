@@ -32,6 +32,67 @@ type Pinjaman = {
     jaminan?: string;
 };
 
+type AngsuranScheduleEntry = {
+    ke: number;
+    jatuhTempo: Date;
+    status: 'Terbayar' | 'Belum Dibayar';
+    kondisiAksi: 'MENUNGGU' | 'SIAP_BAYAR' | 'LUNAS';
+};
+
+type DetailAngsuran = {
+    angsuranPokok: number;
+    jasaPerBulan: number;
+    totalAngsuranPerBulan: number;
+    semuaAngsuran: AngsuranScheduleEntry[];
+    angsuranTerbayar: AngsuranScheduleEntry[];
+    angsuranBerikutnya: AngsuranScheduleEntry | null;
+};
+
+const calculateDetailAngsuran = (pinjaman: Pinjaman): DetailAngsuran => {
+    const angsuranPokok = pinjaman.jangkaWaktu > 0 ? pinjaman.jumlahPinjaman / pinjaman.jangkaWaktu : 0;
+    const jasaPerBulan = pinjaman.jumlahPinjaman * (pinjaman.bunga / 100);
+    const totalAngsuranPerBulan = angsuranPokok + jasaPerBulan;
+
+    const hariIni = new Date();
+    hariIni.setHours(0, 0, 0, 0);
+
+    const semuaAngsuran: AngsuranScheduleEntry[] = Array.from({ length: Math.max(pinjaman.jangkaWaktu, 0) }, (_, i) => {
+        const tanggalJatuhTempo = new Date(pinjaman.tanggalPinjam);
+        tanggalJatuhTempo.setMonth(tanggalJatuhTempo.getMonth() + i + 1);
+        tanggalJatuhTempo.setHours(0, 0, 0, 0);
+
+        const statusSimulasi: 'Terbayar' | 'Belum Dibayar' = hariIni > tanggalJatuhTempo ? 'Terbayar' : 'Belum Dibayar';
+        const batasTampilTombol = new Date(tanggalJatuhTempo);
+        batasTampilTombol.setDate(batasTampilTombol.getDate() - 7);
+
+        let kondisiAksi: 'MENUNGGU' | 'SIAP_BAYAR' | 'LUNAS' = 'MENUNGGU';
+        if (statusSimulasi === 'Terbayar') {
+            kondisiAksi = 'LUNAS';
+        } else if (hariIni >= batasTampilTombol) {
+            kondisiAksi = 'SIAP_BAYAR';
+        }
+
+        return {
+            ke: i + 1,
+            jatuhTempo: tanggalJatuhTempo,
+            status: statusSimulasi,
+            kondisiAksi,
+        };
+    });
+
+    const angsuranTerbayar = semuaAngsuran.filter((a) => a.status === 'Terbayar');
+    const angsuranBerikutnya = semuaAngsuran.find((a) => a.status === 'Belum Dibayar') ?? null;
+
+    return {
+        angsuranPokok,
+        jasaPerBulan,
+        totalAngsuranPerBulan,
+        semuaAngsuran,
+        angsuranTerbayar,
+        angsuranBerikutnya,
+    };
+};
+
 
 
 // --- Tipe untuk data formulir Pinjaman ---
@@ -279,47 +340,7 @@ const DetailPinjamanModal = ({ isOpen, onClose, pinjaman }: { isOpen: boolean; o
 
     const detailAngsuran = useMemo(() => {
         if (!pinjaman) return null;
-
-        const angsuranPokok = pinjaman.jangkaWaktu > 0 ? pinjaman.jumlahPinjaman / pinjaman.jangkaWaktu : 0;
-        const jasaPerBulan = pinjaman.jumlahPinjaman * (pinjaman.bunga / 100);
-        const totalAngsuranPerBulan = angsuranPokok + jasaPerBulan;
-
-        const hariIni = new Date();
-        hariIni.setHours(0, 0, 0, 0);
-
-        const semuaAngsuran = Array.from({ length: pinjaman.jangkaWaktu }, (_, i) => {
-            const tanggalJatuhTempo = new Date(pinjaman.tanggalPinjam);
-            tanggalJatuhTempo.setMonth(tanggalJatuhTempo.getMonth() + i + 1);
-            tanggalJatuhTempo.setHours(0, 0, 0, 0);
-            
-            const statusSimulasi = hariIni > tanggalJatuhTempo ? 'Terbayar' : 'Belum Dibayar';
-            const batasTampilTombol = new Date(tanggalJatuhTempo);
-            batasTampilTombol.setDate(batasTampilTombol.getDate() - 7);
-
-            let kondisiAksi = 'MENUNGGU';
-            if (statusSimulasi === 'Terbayar') {
-                kondisiAksi = 'LUNAS';
-            } else if (hariIni >= batasTampilTombol) {
-                kondisiAksi = 'SIAP_BAYAR';
-            }
-
-            return {
-                ke: i + 1,
-                jatuhTempo: tanggalJatuhTempo,
-                status: statusSimulasi,
-                kondisiAksi: kondisiAksi,
-            };
-        });
-
-        const angsuranTerbayar = semuaAngsuran.filter(a => a.status === 'Terbayar');
-        const angsuranBerikutnya = semuaAngsuran.find(a => a.status === 'Belum Dibayar');
-
-        return {
-            totalAngsuranPerBulan,
-            semuaAngsuran,
-            angsuranTerbayar,
-            angsuranBerikutnya,
-        };
+        return calculateDetailAngsuran(pinjaman);
     }, [pinjaman]);
 
     if (!isOpen || !pinjaman || !detailAngsuran) return null;
@@ -504,6 +525,13 @@ export default function PinjamanAnggotaPage() {
             );
         });
     }, [filters, pinjamanList]);
+
+    const upcomingInstallments = useMemo(() => {
+        return filteredPinjaman.map((pinjaman) => ({
+            pinjaman,
+            detail: calculateDetailAngsuran(pinjaman),
+        }));
+    }, [filteredPinjaman]);
 
     // Skeleton kecil
     const Skeleton = ({ className = "" }: { className?: string }) => (
@@ -771,6 +799,65 @@ export default function PinjamanAnggotaPage() {
                                         </td>
                                     </tr>
                                 ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div className="mt-10 overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead className="border-b bg-gray-50 text-sm text-gray-600">
+                                <tr>
+                                    <th className="p-4 font-medium">Anggota</th>
+                                    <th className="p-4 font-medium text-right">Jumlah Pinjaman</th>
+                                    <th className="p-4 font-medium text-center">Jangka Waktu</th>
+                                    <th className="p-4 font-medium">Pembayaran Selanjutnya</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {upcomingInstallments.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={4} className="p-6 text-center text-sm text-gray-500">
+                                            Tidak ada pinjaman yang sesuai dengan filter.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    upcomingInstallments.map(({ pinjaman, detail }) => {
+                                        const angsuranBerikutnya = detail.angsuranBerikutnya;
+                                        return (
+                                            <tr key={pinjaman.id} className="border-b text-sm last:border-b-0">
+                                                <td className="p-4">
+                                                    <div className="font-semibold text-gray-800">{pinjaman.anggota.nama}</div>
+                                                    <div className="text-xs text-gray-500">Tgl Pinjam: {new Date(pinjaman.tanggalPinjam).toLocaleDateString('id-ID')}</div>
+                                                </td>
+                                                <td className="p-4 text-right font-medium">Rp {pinjaman.jumlahPinjaman.toLocaleString('id-ID')}</td>
+                                                <td className="p-4 text-center">{pinjaman.jangkaWaktu} bulan</td>
+                                                <td className="p-4">
+                                                    {angsuranBerikutnya ? (
+                                                        <div className="space-y-1 text-xs text-gray-600">
+                                                            <div className="flex justify-between">
+                                                                <span>Pokok</span>
+                                                                <span className="font-medium text-gray-800">Rp {detail.angsuranPokok.toLocaleString('id-ID')}</span>
+                                                            </div>
+                                                            <div className="flex justify-between">
+                                                                <span>Jasa</span>
+                                                                <span className="font-medium text-gray-800">Rp {detail.jasaPerBulan.toLocaleString('id-ID')}</span>
+                                                            </div>
+                                                            <div className="flex justify-between text-sm font-semibold text-gray-800">
+                                                                <span>Total Bayar</span>
+                                                                <span>Rp {detail.totalAngsuranPerBulan.toLocaleString('id-ID')}</span>
+                                                            </div>
+                                                            <div className="flex justify-between text-xs text-gray-500">
+                                                                <span>Jatuh Tempo</span>
+                                                                <span>{angsuranBerikutnya.jatuhTempo.toLocaleDateString('id-ID')}</span>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-xs text-gray-500">Semua angsuran telah lunas.</span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
                             </tbody>
                         </table>
                     </div>
