@@ -84,6 +84,39 @@ export type TotalSaldo = {
   saldoSukarela: number;
 };
 
+export type InventoryCondition = 'BAIK' | 'PERLU_PERBAIKAN' | 'RUSAK';
+
+export type InventoryItem = {
+  id: string;
+  itemCode: string;
+  itemName: string;
+  purchaseDate: string;
+  quantity: number;
+  unitPrice: number;
+  totalValue: number;
+  technicalLifeSpan?: number | null;
+  economicLifeSpan?: number | null;
+  condition: InventoryCondition;
+  location?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateInventoryItemDto = {
+  itemName: string;
+  purchaseDate: string;
+  quantity: number;
+  unitPrice: number;
+  technicalLifeSpan?: number;
+  economicLifeSpan?: number;
+  condition?: InventoryCondition;
+  location?: string;
+  notes?: string;
+};
+
+export type UpdateInventoryItemDto = Partial<CreateInventoryItemDto>;
+
 // Requests use unified Axios instance (lib/api) that already
 // attaches tokens and handles 401 refresh.
 
@@ -198,6 +231,78 @@ export const memberApi = {
       const { message } = parseApiError(error);
       console.error('Error fetching members:', error);
       const errorMessage = Array.isArray(message) ? message.join(', ') : (message || 'Gagal mengambil data anggota');
+      toast.error(errorMessage);
+      throw error;
+    }
+  },
+};
+
+export const inventoryApi = {
+  getAll: async (): Promise<InventoryItem[]> => {
+    try {
+      const { data } = await api.get<InventoryItem[]>('/inventory');
+      return data;
+    } catch (error: unknown) {
+      const { message } = parseApiError(error);
+      console.error('Error fetching inventory items:', error);
+      const errorMessage = Array.isArray(message)
+        ? message.join(', ')
+        : message || 'Gagal mengambil data inventaris';
+      toast.error(errorMessage);
+      throw error;
+    }
+  },
+
+  create: async (
+    payload: CreateInventoryItemDto,
+  ): Promise<InventoryItem> => {
+    try {
+      const { data } = await api.post<InventoryItem>('/inventory', payload);
+      toast.success('Item inventaris berhasil ditambahkan');
+      return data;
+    } catch (error: unknown) {
+      const { message } = parseApiError(error);
+      console.error('Error creating inventory item:', error);
+      const errorMessage = Array.isArray(message)
+        ? message.join(', ')
+        : message || 'Gagal menambahkan item inventaris';
+      toast.error(errorMessage);
+      throw error;
+    }
+  },
+
+  update: async (
+    id: string,
+    payload: UpdateInventoryItemDto,
+  ): Promise<InventoryItem> => {
+    try {
+      const { data } = await api.patch<InventoryItem>(
+        `/inventory/${id}`,
+        payload,
+      );
+      toast.success('Item inventaris berhasil diperbarui');
+      return data;
+    } catch (error: unknown) {
+      const { message } = parseApiError(error);
+      console.error(`Error updating inventory item ${id}:`, error);
+      const errorMessage = Array.isArray(message)
+        ? message.join(', ')
+        : message || 'Gagal memperbarui item inventaris';
+      toast.error(errorMessage);
+      throw error;
+    }
+  },
+
+  remove: async (id: string): Promise<void> => {
+    try {
+      await api.delete(`/inventory/${id}`);
+      toast.success('Item inventaris berhasil dihapus');
+    } catch (error: unknown) {
+      const { message } = parseApiError(error);
+      console.error(`Error deleting inventory item ${id}:`, error);
+      const errorMessage = Array.isArray(message)
+        ? message.join(', ')
+        : message || 'Gagal menghapus item inventaris';
       toast.error(errorMessage);
       throw error;
     }
