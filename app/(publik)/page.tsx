@@ -1,3 +1,4 @@
+// Lokasi: alviansyahburhani/frontendkopmerahputih/frontendKopMerahPutih-2d28dba419adfcc919625f86c3f6e3cf404c0119/app/(publik)/page.tsx
 "use client";
 
 import { useState, useEffect, ChangeEvent, useRef } from "react";
@@ -5,17 +6,26 @@ import Button from "@/components/Button";
 import Image from "next/image";
 import Gallery, { GALLERY_IMAGES } from "@/components/Gallery";
 import Link from "next/link";
-import { NewsItem } from "@/components/NewsTypes";
+import { NewsItem } from "@/components/NewsTypes"; // Tipe yang diharapkan NewsCard
 import NewsCard from "@/components/NewsCard";
 import QuoteFader from "@/components/QuoteFader";
 import ProductCard from "@/components/ProductCard";
 import { Search } from "lucide-react";
 
-import { fetchLatest } from "@/lib/news";
-import { fetchFeaturedProducts } from "@/lib/products";
+// --- [BARU] Impor service dan tipe data backend ---
+import { publicService } from "@/services/public.service";
+import type { 
+  News, 
+  ApiErrorResponse 
+} from "@/types/api.types";
+import type { 
+  Product as PublicProduct 
+} from "@/services/public.service"; 
+// --- (Akhir Impor Baru) ---
+
 
 /* =========================
-   TIPE DATA & UTIL (tanpa any)
+   TIPE DATA & UTIL
    ========================= */
 
 // Hasil search koperasi
@@ -25,60 +35,20 @@ type KoperasiSearchResult = {
   subdomain: string;
 };
 
-// Union yang diharapkan ProductCard
+// Tipe final yang dipakai ProductCard (sudah ada di file Anda)
 type ProdukKategori = "Sembako" | "Elektronik" | "Jasa" | "Lainnya";
 type ProdukStatus = "Tersedia" | "Habis";
 
-// Tipe final yang dipakai ProductCard
 export type Produk = {
   id: string;
   nama: string;
   harga: number;
   imageUrl: string;
-  kategori: ProdukKategori;
+  kategori: ProdukKategori | string; // Dilonggarkan sedikit untuk data backend
   status: ProdukStatus;
 };
 
-// Tipe "mentah" dari API (longgar, TANPA any)
-type RawProduct = {
-  id?: string | number;
-  nama?: string;
-  title?: string;
-  harga?: number | string;
-  price?: number | string;
-  imageUrl?: string;
-  gambar?: string;
-  kategori?: unknown;
-  status?: unknown;
-};
-
-// Type guard: memastikan array RawProduct
-function isRawProductArray(x: unknown): x is RawProduct[] {
-  return Array.isArray(x);
-}
-
-// Helper normalisasi ke union
-const toKategori = (val: unknown): ProdukKategori => {
-  return val === "Sembako" || val === "Elektronik" || val === "Jasa"
-    ? val
-    : "Lainnya";
-};
-
-const toStatus = (val: unknown): ProdukStatus => {
-  return val === "Habis" ? "Habis" : "Tersedia";
-};
-
-const toStringSafe = (v: unknown, fallback = ""): string =>
-  typeof v === "string" ? v : typeof v === "number" ? String(v) : fallback;
-
-const toNumberSafe = (v: unknown, fallback = 0): number => {
-  if (typeof v === "number") return v;
-  if (typeof v === "string") {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : fallback;
-  }
-  return fallback;
-};
+// --- [DIHAPUS] Helper mapping lama (isRawProductArray, dll.) tidak diperlukan lagi ---
 
 /* =========================
    KOMPONEN HALAMAN
@@ -87,6 +57,7 @@ export default function Home() {
   // Data awal
   const [latest, setLatest] = useState<NewsItem[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<Produk[]>([]);
+  const [dataLoading, setDataLoading] = useState(true); // State loading data
 
   // Search interaktif
   const [searchTerm, setSearchTerm] = useState("");
@@ -97,47 +68,60 @@ export default function Home() {
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchWrapperRef = useRef<HTMLDivElement | null>(null);
 
-  // Ambil data awal
+  // --- [DIMODIFIKASI] Ambil data awal dari backend ---
   useEffect(() => {
     const loadData = async () => {
+      setDataLoading(true); // Mulai loading
       try {
-        const newsData = await fetchLatest(3);
-        const raw = (await fetchFeaturedProducts(4)) as unknown;
+        // 1. Ambil data dari service (client-side)
+        const newsResult = await publicService.getPublishedNewsClient(1, 3);
+        const productResult = await publicService.getPublishedProductsClient(1, 4);
 
-        // Validasi & mapping ke Produk (tanpa any)
-        const productData: Produk[] = isRawProductArray(raw)
-          ? raw.map((p): Produk => {
-              const id = toStringSafe(p.id, crypto.randomUUID());
-              const nama = toStringSafe(p.nama ?? p.title ?? "Produk");
-              const harga = toNumberSafe(p.harga ?? p.price ?? 0, 0);
-              const imageUrl = toStringSafe(
-                p.imageUrl ?? p.gambar ?? "/images/placeholder.png",
-                "/images/placeholder.png"
-              );
-              const kategori = toKategori(p.kategori);
-              const status = toStatus(p.status);
+        // 2. Mapping data Berita (News) ke NewsItem (untuk NewsCard)
+        const newsData: NewsItem[] = newsResult.data.map((n: News): NewsItem => ({
+          id: n.id,
+          slug: n.slug,
+          title: n.title,
+          excerpt: n.excerpt || '',
+          content: n.content || '',
+          image: n.imageUrl || "/images/merahputih-rmv.png", // Fallback
+          publishedAt: n.publishedAt || n.createdAt,
+        }));
 
-              return { id, nama, harga, imageUrl, kategori, status };
-            })
-          : [];
+        // 3. Mapping data Produk (PublicProduct) ke Produk (untuk ProductCard)
+        const productData: Produk[] = productResult.data.map((p: PublicProduct): Produk => ({
+          id: p.id,
+          nama: p.name,
+          harga: p.price,
+          imageUrl: p.imageUrl || "/images/merahputih-rmv.png", // Fallback
+          kategori: p.category?.name || 'Lainnya',
+          status: p.isAvailable ? 'Tersedia' : 'Habis',
+        }));
 
         setLatest(newsData);
         setFeaturedProducts(productData);
+
       } catch (err: unknown) {
-        if (err instanceof Error) {
-          console.error("Gagal mengambil data awal:", err.message);
+        // Tangani error jika API gagal
+        const apiError = err as ApiErrorResponse;
+        if (apiError.message) {
+          console.error("Gagal mengambil data awal:", apiError.message);
         } else {
           console.error("Gagal mengambil data awal:", "Terjadi error tidak dikenal");
         }
+        // Biarkan state (latest, featuredProducts) kosong
+      } finally {
+        setDataLoading(false); // Selesai loading
       }
     };
+    
     loadData();
 
     // Cleanup debounce
     return () => {
       if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     };
-  }, []);
+  }, []); // [] = Jalankan sekali saat komponen dimuat
 
   // Fetch hasil pencarian (debounce)
   const fetchSearchResults = async (query: string) => {
@@ -151,7 +135,10 @@ export default function Home() {
     setShowDropdown(true);
 
     try {
-      // Mock sementara
+      // TODO: Ganti ini dengan API search tenant
+      // const results = await publicService.searchTenants(query);
+      
+      // Mock sementara (sesuai kode Anda)
       await new Promise((resolve) => setTimeout(resolve, 300));
       const mockData: KoperasiSearchResult[] = [
         { id: "1", nama: "Koperasi Maju Jaya", subdomain: "majujaya" },
@@ -176,19 +163,19 @@ export default function Home() {
     searchTimeoutRef.current = setTimeout(() => fetchSearchResults(query), 300);
   };
 
-  // Redirect subdomain (dev vs prod)
+  // Redirect subdomain (dev vs prod) - Tidak berubah
   const redirectToSubdomain = (subdomain: string) => {
     if (typeof window !== "undefined") {
       const isLocal = window.location.hostname === "localhost";
       const protocol = window.location.protocol;
-      const rootDomain = isLocal ? "localhost:3000" : "sistemkoperasi.id";
+      const rootDomain = isLocal ? "localhost:3000" : "sistemkoperasi.id"; // Sesuaikan jika domain produksi beda
       window.location.href = isLocal
-        ? `${protocol}//${rootDomain}/${subdomain}`
+        ? `${protocol}//${rootDomain}/${subdomain}` // Asumsi mode local dev
         : `${protocol}//${subdomain}.${rootDomain}`;
     }
   };
 
-  // Tutup dropdown saat klik di luar
+  // Tutup dropdown saat klik di luar - Tidak berubah
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (searchWrapperRef.current && !searchWrapperRef.current.contains(event.target as Node)) {
@@ -205,7 +192,7 @@ export default function Home() {
      ========================= */
   return (
     <>
-      {/* HERO SECTION */}
+      {/* HERO SECTION (Tidak berubah) */}
       <section className="relative h-screen flex items-center justify-center text-center text-white">
         <Image
           src="https://cdn.pixabay.com/photo/2023/05/04/02/24/bali-7969001_1280.jpg"
@@ -224,7 +211,7 @@ export default function Home() {
             dan layanan koperasi modern.
           </p>
 
-          {/* SEARCH BAR */}
+          {/* SEARCH BAR (Tidak berubah) */}
           <div ref={searchWrapperRef} className="mt-8 mb-4 max-w-lg w-full relative">
             <form className="relative flex w-full">
               <label htmlFor="search-koperasi" className="sr-only">
@@ -262,7 +249,7 @@ export default function Home() {
                       >
                         <p className="font-semibold text-gray-800">{koperasi.nama}</p>
                         <p className="text-xs text-blue-600">
-                          {koperasi.subdomain}.sistemkoperasi.id
+                          {koperasi.subdomain}.sistemkoperasi.id 
                         </p>
                       </li>
                     ))}
@@ -277,7 +264,7 @@ export default function Home() {
             )}
           </div>
 
-          {/* CTA BUTTONS */}
+          {/* CTA BUTTONS (Tidak berubah) */}
           <div className="mt-6 flex flex-col sm:flex-row justify-center gap-4 w-full max-w-md">
             <Link href="/auth/login" className="w-full sm:w-auto">
               <Button size="lg" className="w-full sm:w-auto">
@@ -297,7 +284,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* SEJARAH */}
+      {/* SEJARAH (Tidak berubah) */}
       <section className="py-16 md:py-20 bg-white">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
@@ -325,7 +312,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* FITUR */}
+      {/* FITUR (Tidak berubah) */}
       <section className="py-12 md:py-16 bg-gray-50 border-y">
         <div className="container mx-auto px-4 grid md:grid-cols-3 gap-6">
           <div className="rounded-2xl bg-white p-6 shadow-sm border">
@@ -349,7 +336,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* GALERI */}
+      {/* GALERI (Tidak berubah) */}
       <section className="py-12 md:py-16 bg-white">
         <div className="container mx-auto px-4">
           <div className="mb-8 flex items-center justify-between">
@@ -365,7 +352,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* BERITA TERKINI */}
+      {/* --- [DIMODIFIKASI] BERITA TERKINI --- */}
       <section className="py-12 md:py-16 bg-red-50/50 border-t">
         <div className="container mx-auto px-4">
           <div className="mb-8 flex items-center justify-between">
@@ -379,15 +366,32 @@ export default function Home() {
               <Button variant="outline">Lihat Semua</Button>
             </Link>
           </div>
+          
+          {/* Tampilkan data dari state */}
           <div className="grid gap-6 md:grid-cols-3">
-            {latest.map((item) => (
-              <NewsCard key={item.id} item={item} />
-            ))}
+            {dataLoading ? (
+              // Tampilkan Skeleton loading
+              <>
+                <SkeletonNewsCard />
+                <SkeletonNewsCard />
+                <SkeletonNewsCard />
+              </>
+            ) : latest.length > 0 ? (
+              // Tampilkan data
+              latest.map((item) => (
+                <NewsCard key={item.id} item={item} />
+              ))
+            ) : (
+              // Tampilkan pesan kosong
+              <p className="md:col-span-3 text-center text-gray-500">
+                Belum ada berita yang dipublikasikan.
+              </p>
+            )}
           </div>
         </div>
       </section>
 
-      {/* PRODUK UNGGULAN */}
+      {/* --- [DIMODIFIKASI] PRODUK UNGGULAN --- */}
       <section className="py-12 md:py-16 bg-white border-t">
         <div className="container mx-auto px-4">
           <div className="mb-8 flex items-center justify-between">
@@ -400,12 +404,23 @@ export default function Home() {
             </Link>
           </div>
 
+          {/* Tampilkan data dari state */}
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {featuredProducts.map((itemProduk) => (
-              <ProductCard key={itemProduk.id} produk={itemProduk} />
-            ))}
-
-            {featuredProducts.length === 0 && (
+            {dataLoading ? (
+              // Tampilkan Skeleton loading
+              <>
+                <SkeletonProductCard />
+                <SkeletonProductCard />
+                <SkeletonProductCard />
+                <SkeletonProductCard />
+              </>
+            ) : featuredProducts.length > 0 ? (
+              // Tampilkan data
+              featuredProducts.map((itemProduk) => (
+                <ProductCard key={itemProduk.id} produk={itemProduk} />
+              ))
+            ) : (
+              // Tampilkan pesan kosong
               <p className="sm:col-span-2 lg:col-span-4 text-center text-gray-500">
                 Belum ada produk unggulan yang tersedia saat ini.
               </p>
@@ -414,7 +429,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CTA */}
+      {/* CTA (Tidak berubah) */}
       <section className="bg-slate-100 border-y">
         <div className="container mx-auto px-4 py-16 md:py-20">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
@@ -455,3 +470,29 @@ export default function Home() {
     </>
   );
 }
+
+// --- [BARU] Komponen Skeleton untuk Loading Card ---
+
+const SkeletonNewsCard = () => (
+  <article className="rounded-2xl border border-red-100 bg-white shadow overflow-hidden">
+    <div className="relative w-full aspect-[16/9] bg-gray-200 animate-pulse" />
+    <div className="p-4">
+      <div className="h-4 bg-gray-200 rounded w-1/3 mb-2 animate-pulse" />
+      <div className="h-5 bg-gray-200 rounded w-5/6 mb-1 animate-pulse" />
+      <div className="h-5 bg-gray-200 rounded w-3/4 animate-pulse" />
+      <div className="h-4 bg-gray-200 rounded w-full mt-3 animate-pulse" />
+      <div className="h-4 bg-gray-200 rounded w-2/3 mt-1 animate-pulse" />
+    </div>
+  </article>
+);
+
+const SkeletonProductCard = () => (
+  <article className="rounded-2xl border border-red-100 bg-white shadow overflow-hidden">
+    <div className="relative w-full aspect-square bg-gray-200 animate-pulse" />
+    <div className="p-4">
+      <div className="h-3 bg-gray-200 rounded w-1/4 mb-2 animate-pulse" />
+      <div className="h-5 bg-gray-200 rounded w-3/4 mb-3 animate-pulse" />
+      <div className="h-6 bg-gray-200 rounded w-1/2 animate-pulse" />
+    </div>
+  </article>
+);
