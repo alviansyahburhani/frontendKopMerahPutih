@@ -7,7 +7,12 @@ import {
   PaginatedNewsResult,
   ApiErrorResponse 
 } from '@/types/api.types';
+import { 
+  GalleryItem,
+  PaginatedResult 
+  } from '@/types/api.types';
 import axios, { AxiosError } from 'axios';
+
 
 type RequestParams = Record<string, string | number | boolean | undefined>;
 
@@ -112,6 +117,39 @@ async function handleServerRequest<T>(
 }
 
 export const publicService = {
+
+  /**
+   * [Galeri] Mengambil item galeri untuk 'use client' components
+   * Endpoint: GET /gallery
+   */
+  getPublicGalleryClient: (
+    page: number = 1,
+    limit: number = 6
+  ): Promise<PaginatedResult<GalleryItem>> => {
+    // Menggunakan 'api' (dari lib/api) yang otomatis menangani subdomain
+    return handleRequest(
+      api.get<PaginatedResult<GalleryItem>>('/gallery', {
+        params: { page, limit },
+      })
+    );
+  },
+  /**
+   * [Galeri] Mengambil item galeri yang terbit (Publik)
+   * Dijalankan di Server, butuh 'host'
+   * Endpoint: GET /gallery (ini adalah endpoint publik sesuai analisis)
+   */
+  getPublicGallery: (
+    host: string,
+    page: number = 1,
+    limit: number = 100 // Ambil 100 gambar
+  ): Promise<PaginatedResult<GalleryItem>> => {
+
+    return handleServerRequest<PaginatedResult<GalleryItem>>(
+      host,
+      '/gallery', // Endpoint ini (GET /gallery) adalah publik
+      { page, limit }
+    );
+  },
 
 
   // Untuk 'use client' components seperti landing page

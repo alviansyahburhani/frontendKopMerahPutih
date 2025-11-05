@@ -319,16 +319,35 @@ export interface News {
     fullName: string;
   };
 }
+/**
+ * Tipe data untuk satu item di Galeri (SESUAI BACKEND)
+ */
+export interface GalleryItem {
+  id: string;
+  imageUrl: string;
+  description: string | null; // <-- Diperbaiki (sebelumnya caption)
+  order: number | null;       // <-- Ditambahkan
+  createdAt: string;
+  updatedAt: string;
+}
 
 /**
- * Tipe data untuk hasil paginasi artikel dari backend
+ * DTO untuk mengupdate deskripsi/urutan gambar (SESUAI BACKEND)
  */
-export interface PaginatedNewsResult {
-  data: News[];
-  meta: {
-    currentPage: number;
-    perPage: number;
-    totalItems: number;
-    totalPages: number;
-  };
+export interface UpdateGalleryItemDto {
+  description?: string;
+  order?: number;
+}
+
+// (Tipe Paginasi yang sudah kita tambahkan sebelumnya, ini sudah benar)
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface PaginatedResult<T> {
+  data: T[];
+  meta: PaginationMeta;
 }

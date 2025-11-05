@@ -4,34 +4,37 @@ import Image from "next/image";
 import { useState } from "react";
 import Lightbox from "./Lightbox"; // Atau "@/components/Lightbox"
 
-export const GALLERY_IMAGES: string[] = [
-  "https://cdn.pixabay.com/photo/2023/02/14/23/49/woman-7790612_1280.jpg",
-  "https://cdn.pixabay.com/photo/2024/06/18/21/37/bali-8838762_640.jpg",
-  "https://cdn.pixabay.com/photo/2023/02/14/23/49/woman-7790612_1280.jpg",
-  "https://cdn.pixabay.com/photo/2024/06/18/21/37/bali-8838762_640.jpg",
-  "https://cdn.pixabay.com/photo/2023/02/14/23/49/woman-7790612_1280.jpg",
-  "https://cdn.pixabay.com/photo/2023/02/14/23/49/woman-7790612_1280.jpg",
-  "https://cdn.pixabay.com/photo/2023/02/14/23/49/woman-7790612_1280.jpg",
-  "https://cdn.pixabay.com/photo/2023/02/14/23/49/woman-7790612_1280.jpg",
-  "https://cdn.pixabay.com/photo/2023/02/14/23/49/woman-7790612_1280.jpg",
-];
+// --- [BARU] Tipe data untuk gambar ---
+type GalleryImage = {
+  src: string;
+  alt: string;
+};
 
+// --- [HAPUS] Mock data (GALLERY_IMAGES) tidak lagi digunakan ---
+
+// --- [MODIFIKASI] Tipe Props ---
 type Props = {
-  images?: string[];
+  images?: GalleryImage[]; // Sekarang menerima array objek
   limit?: number;
 };
 
-export default function Gallery({ images = GALLERY_IMAGES, limit }: Props) {
+// --- [MODIFIKASI] Default props dikosongkan ---
+export default function Gallery({ images = [], limit }: Props) {
   const data = typeof limit === "number" ? images.slice(0, limit) : images;
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState(0);
 
+  // --- [BARU] Siapkan array string untuk Lightbox ---
+  // Komponen Lightbox masih mengharapkan array string (URL)
+  const lightboxImages = data.map((img) => img.src);
+
   return (
     <>
       <div className="columns-1 sm:columns-2 lg:columns-3 gap-4">
-        {data.map((src, i) => (
+        {/* --- [MODIFIKASI] Mapping --- */}
+        {data.map((img, i) => ( // Variabel diubah ke 'img'
           <figure
-            key={src + i}
+            key={img.src + i} // Gunakan img.src sebagai key
             className="mb-4 break-inside-avoid relative group cursor-zoom-in"
             onClick={() => {
               setIndex(i);
@@ -39,8 +42,8 @@ export default function Gallery({ images = GALLERY_IMAGES, limit }: Props) {
             }}
           >
             <Image
-              src={src}
-              alt={`Galeri ${i + 1}`}
+              src={img.src}   // <-- Perbaikan 1: Gunakan img.src
+              alt={img.alt}   // <-- Perbaikan 2: Gunakan img.alt
               width={1200}
               height={800}
               className="w-full h-auto rounded-xl shadow transition-transform group-hover:scale-[1.01]"
@@ -57,7 +60,7 @@ export default function Gallery({ images = GALLERY_IMAGES, limit }: Props) {
         index={index}
         setOpen={setOpen}
         setIndex={setIndex}
-        images={data}
+        images={lightboxImages} // <-- Perbaikan 3: Kirim array string (URL)
       />
     </>
   );

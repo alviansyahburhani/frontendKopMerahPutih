@@ -4,7 +4,8 @@ import { MemberRegistration } from '@/types/api.types'; // Asumsi Anda punya tip
 import { Gender } from '@/types/enums';
 import {
   GuestBookEntry,
-  UpdateGuestBookDto,
+  UpdateGuestBookDto,GalleryItem, 
+  UpdateGalleryItemDto,PaginatedResult
 } from '@/types/api.types';
 import { 
   AgendaExpedition,
@@ -505,6 +506,61 @@ export type PendingRegistration = Omit<MemberRegistration, 'hashedPassword'>;
 
 export const adminService = {
 
+/**
+   * [Galeri] Mengambil semua item galeri (PAGINASI)
+   * Endpoint: GET /gallery
+   * * [PENTING] Fungsi inilah yang memperbaiki "gagal mengambil daftar gambar"
+   * dan error "data.sort is not a function"
+   */
+  getAllGalleryItems: (
+    page: number = 1,
+    limit: number = 100 
+  ): Promise<PaginatedResult<GalleryItem>> => {
+    return handleRequest(
+      api.get<PaginatedResult<GalleryItem>>('/gallery', {
+        params: { page, limit },
+      })
+    );
+  },
+
+  /**
+   * [Galeri] Mengunggah gambar baru ke galeri
+   * Endpoint: POST /gallery
+   * * [PENTING] Ini adalah fungsi yang Anda perbaiki (tanpa '/upload')
+   */
+  uploadGalleryImage: (
+    file: File, 
+    metadata?: { description?: string; order?: number }
+  ): Promise<GalleryItem> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    if (metadata?.description) {
+      formData.append('description', metadata.description);
+    }
+    if (metadata?.order) {
+      formData.append('order', String(metadata.order));
+    }
+    
+    // Ini adalah endpoint yang benar (POST /gallery)
+    return handleRequest(api.post<GalleryItem>('/gallery', formData));
+  },
+
+  /**
+   * [Galeri] Mengupdate deskripsi/urutan gambar
+   * Endpoint: PATCH /gallery/:id
+   */
+  updateGalleryItem: (id: string, dto: UpdateGalleryItemDto): Promise<GalleryItem> => {
+    return handleRequest(api.patch<GalleryItem>(`/gallery/${id}`, dto));
+  },
+
+  /**
+   * [Galeri] Menghapus gambar dari galeri
+   * Endpoint: DELETE /gallery/:id
+   */
+  deleteGalleryItem: (id: string): Promise<void> => {
+    return handleRequest(api.delete<void>(`/gallery/${id}`));
+  },
 
 // [PERBAIKI/TAMBAHKAN FUNGSI INI]
   /**

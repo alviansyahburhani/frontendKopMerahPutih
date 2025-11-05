@@ -4,19 +4,23 @@
 import { useState, useEffect, ChangeEvent, useRef } from "react";
 import Button from "@/components/Button";
 import Image from "next/image";
-import Gallery, { GALLERY_IMAGES } from "@/components/Gallery";
+// --- [MODIFIKASI] Hapus impor GALLERY_IMAGES ---
+import Gallery from "@/components/Gallery";
 import Link from "next/link";
 import { NewsItem } from "@/components/NewsTypes"; // Tipe yang diharapkan NewsCard
 import NewsCard from "@/components/NewsCard";
 import QuoteFader from "@/components/QuoteFader";
 import ProductCard from "@/components/ProductCard";
 import { Search } from "lucide-react";
+import clsx from "clsx"; // Pastikan clsx diimpor untuk skeleton
 
-// --- [BARU] Impor service dan tipe data backend ---
+// --- Impor service dan tipe data backend ---
 import { publicService } from "@/services/public.service";
 import type { 
   News, 
-  ApiErrorResponse 
+  ApiErrorResponse,
+  // --- [TAMBAHAN] Impor GalleryItem ---
+  GalleryItem
 } from "@/types/api.types";
 import type { 
   Product as PublicProduct 
@@ -35,7 +39,7 @@ type KoperasiSearchResult = {
   subdomain: string;
 };
 
-// Tipe final yang dipakai ProductCard (sudah ada di file Anda)
+// Tipe final yang dipakai ProductCard
 type ProdukKategori = "Sembako" | "Elektronik" | "Jasa" | "Lainnya";
 type ProdukStatus = "Tersedia" | "Habis";
 
@@ -44,11 +48,16 @@ export type Produk = {
   nama: string;
   harga: number;
   imageUrl: string;
-  kategori: ProdukKategori | string; // Dilonggarkan sedikit untuk data backend
+  kategori: ProdukKategori | string; 
   status: ProdukStatus;
 };
 
-// --- [DIHAPUS] Helper mapping lama (isRawProductArray, dll.) tidak diperlukan lagi ---
+// --- [TAMBAHAN] Tipe data untuk UI Galeri ---
+type GalleryImage = {
+  src: string;
+  alt: string;
+};
+
 
 /* =========================
    KOMPONEN HALAMAN
@@ -57,7 +66,9 @@ export default function Home() {
   // Data awal
   const [latest, setLatest] = useState<NewsItem[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<Produk[]>([]);
-  const [dataLoading, setDataLoading] = useState(true); // State loading data
+  // --- [TAMBAHAN] State untuk Galeri ---
+  const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
+  const [dataLoading, setDataLoading] = useState(true); 
 
   // Search interaktif
   const [searchTerm, setSearchTerm] = useState("");
@@ -68,14 +79,17 @@ export default function Home() {
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchWrapperRef = useRef<HTMLDivElement | null>(null);
 
-  // --- [DIMODIFIKASI] Ambil data awal dari backend ---
+  // --- [DIMODIFIKASI] Ambil data awal (termasuk Galeri) ---
   useEffect(() => {
     const loadData = async () => {
-      setDataLoading(true); // Mulai loading
+      setDataLoading(true); 
       try {
-        // 1. Ambil data dari service (client-side)
-        const newsResult = await publicService.getPublishedNewsClient(1, 3);
-        const productResult = await publicService.getPublishedProductsClient(1, 4);
+        // --- [MODIFIKASI] Panggil semua 3 API ---
+        const [newsResult, productResult, galleryResult] = await Promise.all([
+          publicService.getPublishedNewsClient(1, 3),
+          publicService.getPublishedProductsClient(1, 4),
+          publicService.getPublicGalleryClient(1, 6) // Ambil 6 gambar
+        ]);
 
         // 2. Mapping data Berita (News) ke NewsItem (untuk NewsCard)
         const newsData: NewsItem[] = newsResult.data.map((n: News): NewsItem => ({
@@ -84,7 +98,7 @@ export default function Home() {
           title: n.title,
           excerpt: n.excerpt || '',
           content: n.content || '',
-          image: n.imageUrl || "/images/merahputih-rmv.png", // Fallback
+          image: n.imageUrl || "/images/merahputih-rmv.png", 
           publishedAt: n.publishedAt || n.createdAt,
         }));
 
@@ -93,25 +107,26 @@ export default function Home() {
           id: p.id,
           nama: p.name,
           harga: p.price,
-          imageUrl: p.imageUrl || "/images/merahputih-rmv.png", // Fallback
+          imageUrl: p.imageUrl || "/images/merahputih-rmv.png", 
           kategori: p.category?.name || 'Lainnya',
           status: p.isAvailable ? 'Tersedia' : 'Habis',
         }));
 
+        // 4. --- [TAMBAHAN] Mapping Galeri ---
+        const galleryData: GalleryImage[] = galleryResult.data.map((g: GalleryItem): GalleryImage => ({
+          src: g.imageUrl,
+          alt: g.description || "Foto Galeri Koperasi"
+        }));
+
         setLatest(newsData);
         setFeaturedProducts(productData);
+        setGalleryImages(galleryData); // --- [TAMBAHAN] Set state galeri
 
       } catch (err: unknown) {
-        // Tangani error jika API gagal
         const apiError = err as ApiErrorResponse;
-        if (apiError.message) {
-          console.error("Gagal mengambil data awal:", apiError.message);
-        } else {
-          console.error("Gagal mengambil data awal:", "Terjadi error tidak dikenal");
-        }
-        // Biarkan state (latest, featuredProducts) kosong
+        console.error("Gagal mengambil data awal landing page:", apiError.message || err);
       } finally {
-        setDataLoading(false); // Selesai loading
+        setDataLoading(false); 
       }
     };
     
@@ -336,7 +351,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* GALERI (Tidak berubah) */}
+      {/* --- [DIMODIFIKASI] GALERI --- */}
       <section className="py-12 md:py-16 bg-white">
         <div className="container mx-auto px-4">
           <div className="mb-8 flex items-center justify-between">
@@ -348,11 +363,36 @@ export default function Home() {
               <Button variant="outline">Lihat Semua</Button>
             </Link>
           </div>
-          <Gallery images={GALLERY_IMAGES} limit={6} />
+          
+          {/* --- [MODIFIKASI] Logika Loading Galeri --- */}
+          {dataLoading ? (
+            <div className="columns-1 sm:columns-2 lg:columns-3 gap-4">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="mb-4 break-inside-avoid">
+                  {/* Skeleton untuk galeri */}
+                  <div className={clsx(
+                    "w-full h-auto rounded-xl shadow",
+                    // Aspect ratio acak untuk masonry layout
+                    i % 3 === 0 ? "h-64" : (i % 3 === 1 ? "h-80" : "h-72"),
+                    "animate-pulse bg-gray-200"
+                  )} />
+                </div>
+              ))}
+            </div>
+          ) : galleryImages.length > 0 ? (
+            // Gunakan state 'galleryImages', bukan GALLERY_IMAGES
+            <Gallery images={galleryImages} limit={6} />
+          ) : (
+            <p className="text-center text-gray-500">
+              Belum ada galeri yang diunggah.
+            </p>
+          )}
+          {/* --- [AKHIR MODIFIKASI] --- */}
+
         </div>
       </section>
 
-      {/* --- [DIMODIFIKASI] BERITA TERKINI --- */}
+      {/* --- BERITA TERKINI (Kode Anda sudah benar) --- */}
       <section className="py-12 md:py-16 bg-red-50/50 border-t">
         <div className="container mx-auto px-4">
           <div className="mb-8 flex items-center justify-between">
@@ -367,22 +407,18 @@ export default function Home() {
             </Link>
           </div>
           
-          {/* Tampilkan data dari state */}
           <div className="grid gap-6 md:grid-cols-3">
             {dataLoading ? (
-              // Tampilkan Skeleton loading
               <>
                 <SkeletonNewsCard />
                 <SkeletonNewsCard />
                 <SkeletonNewsCard />
               </>
             ) : latest.length > 0 ? (
-              // Tampilkan data
               latest.map((item) => (
                 <NewsCard key={item.id} item={item} />
               ))
             ) : (
-              // Tampilkan pesan kosong
               <p className="md:col-span-3 text-center text-gray-500">
                 Belum ada berita yang dipublikasikan.
               </p>
@@ -391,7 +427,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* --- [DIMODIFIKASI] PRODUK UNGGULAN --- */}
+      {/* --- PRODUK UNGGULAN (Kode Anda sudah benar) --- */}
       <section className="py-12 md:py-16 bg-white border-t">
         <div className="container mx-auto px-4">
           <div className="mb-8 flex items-center justify-between">
@@ -404,10 +440,8 @@ export default function Home() {
             </Link>
           </div>
 
-          {/* Tampilkan data dari state */}
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {dataLoading ? (
-              // Tampilkan Skeleton loading
               <>
                 <SkeletonProductCard />
                 <SkeletonProductCard />
@@ -415,12 +449,10 @@ export default function Home() {
                 <SkeletonProductCard />
               </>
             ) : featuredProducts.length > 0 ? (
-              // Tampilkan data
               featuredProducts.map((itemProduk) => (
                 <ProductCard key={itemProduk.id} produk={itemProduk} />
               ))
             ) : (
-              // Tampilkan pesan kosong
               <p className="sm:col-span-2 lg:col-span-4 text-center text-gray-500">
                 Belum ada produk unggulan yang tersedia saat ini.
               </p>
@@ -471,7 +503,7 @@ export default function Home() {
   );
 }
 
-// --- [BARU] Komponen Skeleton untuk Loading Card ---
+// --- Komponen Skeleton untuk Loading Card (Tidak berubah) ---
 
 const SkeletonNewsCard = () => (
   <article className="rounded-2xl border border-red-100 bg-white shadow overflow-hidden">
