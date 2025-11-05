@@ -337,7 +337,7 @@ export default function ManajemenKatalogPage() {
                   <p className="text-xs text-gray-500 flex items-center gap-1"><Tag size={12}/> {getKategoriFromCategory(produk.category.name)}</p>
                   <h3 className="font-bold text-gray-800 mt-1 truncate">{produk.name}</h3>
                   <p className="text-lg font-extrabold text-brand-red-600 mt-2">
-                    {getKategoriFromCategory(produk.category.name) === 'Jasa' ? `Biaya Admin: Rp ${produk.price.toLocaleString('id-ID')}` : `Rp ${produk.price.toLocaleString('id-ID')}`}
+                    {getKategoriFromCategory(produk.category.name) === 'Jasa' ? `Biaya Admin: Rp${produk.price.toLocaleString('id-ID')}` : `Rp${produk.price.toLocaleString('id-ID')}`}
                   </p>
                 </div>
                 <div className="flex justify-end gap-2 border-t p-3 bg-gray-50">

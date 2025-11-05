@@ -59,7 +59,7 @@ const tanggalFormatOptions: Intl.DateTimeFormatOptions = {
 const formatRupiah = (value: number) => {
   const absolute = Math.abs(value);
   const formatted = absolute.toLocaleString('id-ID');
-  return `${value < 0 ? '-' : ''}Rp ${formatted}`;
+  return `${value < 0 ? '-' : ''}Rp${formatted}`;
 };
 
 type SimpananSummaryRow = {
@@ -784,9 +784,9 @@ export default function SimpananAnggotaPage() {
             />
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div className="bg-white p-5 rounded-xl shadow-lg border border-gray-100"><div className="flex items-center gap-3"><div className="p-3 bg-blue-100 rounded-full"><Landmark className="h-6 w-6 text-blue-600" /></div><div><p className="text-sm text-gray-500">Total Simpanan Pokok</p><p className="text-xl font-bold text-gray-800">Rp {totalSaldo.pokok.toLocaleString('id-ID')}</p></div></div></div>
-                <div className="bg-white p-5 rounded-xl shadow-lg border border-gray-100"><div className="flex items-center gap-3"><div className="p-3 bg-green-100 rounded-full"><CalendarClock className="h-6 w-6 text-green-600" /></div><div><p className="text-sm text-gray-500">Total Simpanan Wajib</p><p className="text-xl font-bold text-gray-800">Rp {totalSaldo.wajib.toLocaleString('id-ID')}</p></div></div></div>
-                <div className="bg-white p-5 rounded-xl shadow-lg border border-gray-100"><div className="flex items-center gap-3"><div className="p-3 bg-purple-100 rounded-full"><Gem className="h-6 w-6 text-purple-600" /></div><div><p className="text-sm text-gray-500">Total Simpanan Sukarela</p><p className="text-xl font-bold text-gray-800">Rp {totalSaldo.sukarela.toLocaleString('id-ID')}</p></div></div></div>
+                <div className="bg-white p-5 rounded-xl shadow-lg border border-gray-100"><div className="flex items-center gap-3"><div className="p-3 bg-blue-100 rounded-full"><Landmark className="h-6 w-6 text-blue-600" /></div><div><p className="text-sm text-gray-500">Total Simpanan Pokok</p><p className="text-xl font-bold text-gray-800">Rp{totalSaldo.pokok.toLocaleString('id-ID')}</p></div></div></div>
+                <div className="bg-white p-5 rounded-xl shadow-lg border border-gray-100"><div className="flex items-center gap-3"><div className="p-3 bg-green-100 rounded-full"><CalendarClock className="h-6 w-6 text-green-600" /></div><div><p className="text-sm text-gray-500">Total Simpanan Wajib</p><p className="text-xl font-bold text-gray-800">Rp{totalSaldo.wajib.toLocaleString('id-ID')}</p></div></div></div>
+                <div className="bg-white p-5 rounded-xl shadow-lg border border-gray-100"><div className="flex items-center gap-3"><div className="p-3 bg-purple-100 rounded-full"><Gem className="h-6 w-6 text-purple-600" /></div><div><p className="text-sm text-gray-500">Total Simpanan Sukarela</p><p className="text-xl font-bold text-gray-800">Rp{totalSaldo.sukarela.toLocaleString('id-ID')}</p></div></div></div>
             </div>
 
             <div className="bg-white rounded-xl shadow-lg border border-gray-100">
@@ -935,7 +935,7 @@ export default function SimpananAnggotaPage() {
                             <div className="flex justify-between"><span className="text-gray-600">Anggota</span><span className="font-medium">{selectedTransaksi.anggota.nama}</span></div>
                             <div className="flex justify-between"><span className="text-gray-600">Jenis Simpanan</span><span className="font-medium">{selectedTransaksi.jenis}</span></div>
                             <div className="flex justify-between"><span className="text-gray-600">Tipe Transaksi</span><span className="font-medium">{selectedTransaksi.tipe}</span></div>
-                            <div className="flex justify-between"><span className="text-gray-600">Jumlah</span><span className="font-semibold">Rp {selectedTransaksi.jumlah.toLocaleString('id-ID')}</span></div>
+                            <div className="flex justify-between"><span className="text-gray-600">Jumlah</span><span className="font-semibold">Rp{selectedTransaksi.jumlah.toLocaleString('id-ID')}</span></div>
                             <div>
                                 <span className="text-gray-600 block">Keterangan</span>
                                 <p className="mt-1 text-gray-800">{selectedTransaksi.keterangan || '-'}</p>

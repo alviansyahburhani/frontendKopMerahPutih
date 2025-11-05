@@ -46,8 +46,8 @@ export default function ProductCard({ produk }: { produk: Produk }) {
           <h3 className="text-md font-bold text-gray-800 mt-1 line-clamp-2">{produk.nama}</h3>
           <p className="text-lg font-extrabold text-brand-red-600 mt-2">
             {isService
-              ? `Biaya Admin: Rp ${produk.harga.toLocaleString('id-ID')}`
-              : `Rp ${produk.harga.toLocaleString('id-ID')}`}
+              ? `Biaya Admin: Rp${produk.harga.toLocaleString('id-ID')}`
+              : `Rp${produk.harga.toLocaleString('id-ID')}`}
           </p>
         </div>
       {/* </Link> */}
