@@ -554,7 +554,7 @@ export default function DaftarInventarisPage() {
                         <div className="p-3 bg-green-100 rounded-full"><DollarSign className="h-6 w-6 text-green-600" /></div>
                         <div>
                             <p className="text-sm text-gray-500">Total Nilai Perolehan Aset</p>
-                            <p className="text-xl font-bold text-gray-800">Rp {ringkasanInventaris.totalNilai.toLocaleString('id-ID')}</p>
+                            <p className="text-xl font-bold text-gray-800">Rp{ringkasanInventaris.totalNilai.toLocaleString('id-ID')}</p>
                         </div>
                     </div>
                 </div>
@@ -661,7 +661,7 @@ export default function DaftarInventarisPage() {
                                         </td>
                                         <td className="p-4">{new Date(item.tanggalPerolehan).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
                                         <td className="p-4">{item.jumlah} {item.satuan}</td>
-                                        <td className="p-4">Rp {item.nilaiPerolehan.toLocaleString('id-ID')}</td>
+                                        <td className="p-4">Rp{item.nilaiPerolehan.toLocaleString('id-ID')}</td>
                                         {canManageInventaris && (
                                             <td className="p-4 text-center space-x-2">
                                                 <button

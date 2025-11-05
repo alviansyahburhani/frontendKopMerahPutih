@@ -354,7 +354,7 @@ const DetailPinjamanModal = ({ isOpen, onClose, pinjaman }: { isOpen: boolean; o
                 </div>
                 <div className="p-6 overflow-y-auto space-y-6">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div><p className="text-gray-500">Jumlah Pinjaman</p><p className="font-bold text-lg">Rp {pinjaman.jumlahPinjaman.toLocaleString('id-ID')}</p></div>
+                        <div><p className="text-gray-500">Jumlah Pinjaman</p><p className="font-bold text-lg">Rp{pinjaman.jumlahPinjaman.toLocaleString('id-ID')}</p></div>
                         <div><p className="text-gray-500">Jangka Waktu</p><p className="font-bold">{pinjaman.jangkaWaktu} Bulan</p></div>
                         <div><p className="text-gray-500">Jasa</p><p className="font-bold">{pinjaman.bunga}% / Bulan</p></div>
                         <div><p className="text-gray-500">Status</p><p className={`font-bold ${pinjaman.status === 'Lunas' ? 'text-green-600' : 'text-yellow-600'}`}>{pinjaman.status}</p></div>
@@ -367,7 +367,7 @@ const DetailPinjamanModal = ({ isOpen, onClose, pinjaman }: { isOpen: boolean; o
                                     <div className="flex justify-between"><span>Angsuran Ke:</span><span className="font-medium">{detailAngsuran.angsuranBerikutnya.ke}</span></div>
                                     <div className="flex justify-between"><span>Jatuh Tempo:</span><span className="font-medium">{detailAngsuran.angsuranBerikutnya.jatuhTempo.toLocaleDateString('id-ID')}</span></div>
                                     <hr className="my-1"/>
-                                    <div className="flex justify-between font-bold text-base"><span>Jumlah Bayar:</span><span>Rp {detailAngsuran.totalAngsuranPerBulan.toLocaleString('id-ID')}</span></div>
+                                    <div className="flex justify-between font-bold text-base"><span>Jumlah Bayar:</span><span>Rp{detailAngsuran.totalAngsuranPerBulan.toLocaleString('id-ID')}</span></div>
                                 </div>
                             ) : (
                                 <p className="text-sm text-gray-600">Semua angsuran telah lunas.</p>
@@ -380,7 +380,7 @@ const DetailPinjamanModal = ({ isOpen, onClose, pinjaman }: { isOpen: boolean; o
                                 <hr className="my-1"/>
                                 <div className="flex justify-between font-bold text-base">
                                     <span>Jumlah Dana Kembali:</span>
-                                    <span>Rp {(detailAngsuran.angsuranTerbayar.length * detailAngsuran.totalAngsuranPerBulan).toLocaleString('id-ID')}</span>
+                                    <span>Rp{(detailAngsuran.angsuranTerbayar.length * detailAngsuran.totalAngsuranPerBulan).toLocaleString('id-ID')}</span>
                                 </div>
                             </div>
                         </div>
@@ -408,7 +408,7 @@ const DetailPinjamanModal = ({ isOpen, onClose, pinjaman }: { isOpen: boolean; o
                                         <tr key={ang.ke} className="border-t">
                                             <td className="p-3">{ang.ke}</td>
                                             <td className="p-3">{ang.jatuhTempo.toLocaleDateString('id-ID')}</td>
-                                            <td className="p-3 font-medium">Rp {detailAngsuran.totalAngsuranPerBulan.toLocaleString('id-ID')}</td>
+                                            <td className="p-3 font-medium">Rp{detailAngsuran.totalAngsuranPerBulan.toLocaleString('id-ID')}</td>
                                             <td className="p-3">
                                                 <span className={`px-2 py-1 text-xs rounded-full ${ang.status === 'Terbayar' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{ang.status}</span>
                                             </td>
@@ -699,7 +699,7 @@ export default function PinjamanAnggotaPage() {
                         <div className="p-3 bg-red-100 rounded-full"><HandCoins className="h-6 w-6 text-red-600" /></div>
                         <div>
                             <p className="text-sm text-gray-500">Total Pinjaman Beredar</p>
-                            <p className="text-xl font-bold text-gray-800">Rp {pinjamanList.filter(p => p.status === 'Aktif').reduce((sum, p) => sum + p.jumlahPinjaman, 0).toLocaleString('id-ID')}</p>
+                            <p className="text-xl font-bold text-gray-800">Rp{pinjamanList.filter(p => p.status === 'Aktif').reduce((sum, p) => sum + p.jumlahPinjaman, 0).toLocaleString('id-ID')}</p>
                         </div>
                     </div>
                 </div>
@@ -771,7 +771,7 @@ export default function PinjamanAnggotaPage() {
                                             <div className="font-medium text-gray-800">{pinjaman.anggota.nama}</div>
                                             <div className="text-xs text-gray-500">Tgl Pinjam: {new Date(pinjaman.tanggalPinjam).toLocaleDateString('id-ID')}</div>
                                         </td>
-                                        <td className="p-4 text-right font-semibold">Rp {pinjaman.jumlahPinjaman.toLocaleString('id-ID')}</td>
+                                        <td className="p-4 text-right font-semibold">Rp{pinjaman.jumlahPinjaman.toLocaleString('id-ID')}</td>
                                         <td className="p-4 text-center">{pinjaman.jangkaWaktu} bulan</td>
                                         <td className="p-4 text-center">
                                             <span className={`px-3 py-1 text-xs font-semibold rounded-full ${pinjaman.status === 'Aktif' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
@@ -828,22 +828,22 @@ export default function PinjamanAnggotaPage() {
                                                     <div className="font-semibold text-gray-800">{pinjaman.anggota.nama}</div>
                                                     <div className="text-xs text-gray-500">Tgl Pinjam: {new Date(pinjaman.tanggalPinjam).toLocaleDateString('id-ID')}</div>
                                                 </td>
-                                                <td className="p-4 text-right font-medium">Rp {pinjaman.jumlahPinjaman.toLocaleString('id-ID')}</td>
+                                                <td className="p-4 text-right font-medium">Rp{pinjaman.jumlahPinjaman.toLocaleString('id-ID')}</td>
                                                 <td className="p-4 text-center">{pinjaman.jangkaWaktu} bulan</td>
                                                 <td className="p-4">
                                                     {angsuranBerikutnya ? (
                                                         <div className="space-y-1 text-xs text-gray-600">
                                                             <div className="flex justify-between">
                                                                 <span>Pokok</span>
-                                                                <span className="font-medium text-gray-800">Rp {detail.angsuranPokok.toLocaleString('id-ID')}</span>
+                                                                <span className="font-medium text-gray-800">Rp{detail.angsuranPokok.toLocaleString('id-ID')}</span>
                                                             </div>
                                                             <div className="flex justify-between">
                                                                 <span>Jasa</span>
-                                                                <span className="font-medium text-gray-800">Rp {detail.jasaPerBulan.toLocaleString('id-ID')}</span>
+                                                                <span className="font-medium text-gray-800">Rp{detail.jasaPerBulan.toLocaleString('id-ID')}</span>
                                                             </div>
                                                             <div className="flex justify-between text-sm font-semibold text-gray-800">
                                                                 <span>Total Bayar</span>
-                                                                <span>Rp {detail.totalAngsuranPerBulan.toLocaleString('id-ID')}</span>
+                                                                <span>Rp{detail.totalAngsuranPerBulan.toLocaleString('id-ID')}</span>
                                                             </div>
                                                             <div className="flex justify-between text-xs text-gray-500">
                                                                 <span>Jatuh Tempo</span>

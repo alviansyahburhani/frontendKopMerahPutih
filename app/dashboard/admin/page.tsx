@@ -37,7 +37,7 @@ import { productsService } from "@/services/products.service";
 const formatCurrency = (value: number) => {
   const absolute = Math.abs(value);
   const formatted = absolute.toLocaleString("id-ID");
-  return `${value < 0 ? "-" : ""}Rp ${formatted}`;
+  return `${value < 0 ? "-" : ""}Rp${formatted}`;
 };
 
 const formatDate = (value: string | Date) => {
@@ -952,7 +952,7 @@ export default function AdminDashboardPage() {
         value: data.stats.totalSimpanan.value,
         change: data.stats.totalSimpanan.change,
         color: "green",
-        unit: "Rp ",
+        unit: "Rp",
       },
       {
         icon: HandCoins,
@@ -960,7 +960,7 @@ export default function AdminDashboardPage() {
         value: data.stats.totalPinjaman.value,
         change: data.stats.totalPinjaman.change,
         color: "red",
-        unit: "Rp ",
+        unit: "Rp",
       },
       {
         icon: Send,
@@ -1613,7 +1613,7 @@ export default function AdminDashboardPage() {
         value: data.stats.totalSimpanan.value,
         change: data.stats.totalSimpanan.change,
         color: "green",
-        unit: "Rp ",
+        unit: "Rp",
       },
       {
         icon: HandCoins,
@@ -1621,7 +1621,7 @@ export default function AdminDashboardPage() {
         value: data.stats.totalPinjaman.value,
         change: data.stats.totalPinjaman.change,
         color: "red",
-        unit: "Rp ",
+        unit: "Rp",
       },
     ];
 
