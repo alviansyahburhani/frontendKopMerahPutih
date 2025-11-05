@@ -9,6 +9,8 @@ import {
 } from '@/types/api.types';
 import axios, { AxiosError } from 'axios';
 
+type RequestParams = Record<string, string | number | boolean | undefined>;
+
 export interface Product {
   id: string;
   name: string;
@@ -48,8 +50,8 @@ async function handleRequest<T>(request: Promise<{ data: T }>): Promise<T> {
 // [PERBAIKAN] Helper untuk request Server-Side
 async function handleServerRequest<T>(
   host: string, // Ini adalah 'kerenjaya.localhost:3000'
-  path: string, 
-  params?: any
+  path: string,
+  params?: RequestParams,
 ): Promise<T> {
   
   // 1. Tentukan URL Backend. Saat dipanggil dari server, kita SELALU
@@ -79,23 +81,32 @@ async function handleServerRequest<T>(
     
     // [FIX] Tangani error ENOTFOUND dengan lebih jelas
     if (err.code === 'ENOTFOUND' || err.code === 'ECONNRESET') {
-       throw {
-         message: `[Server Fetch Error] Gagal terhubung ke backend di ${baseUrl}. Error: ${err.message}`,
-         statusCode: 500,
-       } as ApiErrorResponse;
-    }
-    
-    if (err.response) {
-      const apiError = err.response.data as any;
       throw {
-        message: apiError.message || 'Server error',
-        statusCode: apiError.statusCode || 500,
+        message: `[Server Fetch Error] Gagal terhubung ke backend di ${baseUrl}. Error: ${err.message}`,
+        statusCode: 500,
+        error: 'Server Fetch Error',
+      } as ApiErrorResponse;
+    }
+
+    if (err.response) {
+      const apiError = err.response.data as Partial<ApiErrorResponse> | undefined;
+      const message = apiError?.message ?? 'Server error';
+      const statusCode =
+        typeof apiError?.statusCode === 'number'
+          ? apiError.statusCode
+          : err.response.status ?? 500;
+      const errorName = apiError?.error ?? 'Internal Server Error';
+      throw {
+        message,
+        statusCode,
+        error: errorName,
       } as ApiErrorResponse;
     }
 
     throw {
       message: err.message,
       statusCode: 500,
+      error: 'Server Fetch Error',
     } as ApiErrorResponse;
   }
 }
@@ -120,6 +131,25 @@ export const publicService = {
       api.get<PaginatedProductsResult>('/products', {
         params: { page, limit },
       })
+    );
+  },
+
+  // --- Service Produk (Server-Side) ---
+  getPublishedProducts: (
+    page = 1,
+    limit = 10,
+    host: string,
+    categorySlug?: string,
+  ): Promise<PaginatedProductsResult> => {
+    const params: Record<string, string | number> = { page, limit };
+    if (categorySlug) {
+      params.category = categorySlug;
+    }
+
+    return handleServerRequest<PaginatedProductsResult>(
+      host,
+      '/products',
+      params,
     );
   },
 

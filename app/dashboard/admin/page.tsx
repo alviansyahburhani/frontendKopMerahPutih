@@ -17,6 +17,7 @@ import {
   BookMarked,
   ClipboardList,
   Mail,
+  Tag,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState, ElementType } from "react";
@@ -31,6 +32,7 @@ import {
   type Member,
 } from "@/lib/apiService";
 import { adminService } from "@/services/admin.service";
+import { productsService } from "@/services/products.service";
 
 const formatCurrency = (value: number) => {
   const absolute = Math.abs(value);
@@ -63,6 +65,22 @@ type DashboardData = {
   };
   anggotaTerbaru: { nama: string; tanggalMasuk: string }[];
   aktivitasTerbaru: { ikon: ElementType; teks: string; waktu: string }[];
+};
+
+type CatalogSummary = {
+  totalProducts: number;
+  availableProducts: number;
+  unavailableProducts: number;
+  categoryCount: number;
+  categories: { name: string; count: number }[];
+  recentProducts: {
+    id: string;
+    name: string;
+    price: number;
+    isAvailable: boolean;
+    categoryName: string;
+    updatedAt: string;
+  }[];
 };
 
 type StatCardProps = {
@@ -560,6 +578,12 @@ export default function AdminDashboardPage() {
   const [simpananTransactionsList, setSimpananTransactionsList] = useState<
     SimpananTransaksi[]
   >([]);
+  const [catalogSummary, setCatalogSummary] = useState<CatalogSummary | null>(
+    null
+  );
+  const [catalogSummaryError, setCatalogSummaryError] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -622,26 +646,41 @@ export default function AdminDashboardPage() {
       );
 
       try {
-        const [simpananData, loanData, memberData] = await Promise.all([
-          canAccessFinance
-            ? simpananApi.getAllTransactions().catch((error) => {
-                console.warn("Data simpanan tidak dapat diakses:", error);
-                return [] as SimpananTransaksi[];
-              })
-            : Promise.resolve([] as SimpananTransaksi[]),
-          canAccessFinance
-            ? loanApi.getAllLoans().catch((error) => {
-                console.warn("Data pinjaman tidak dapat diakses:", error);
-                return [] as Loan[];
-              })
-            : Promise.resolve([] as Loan[]),
-          canAccessMembership
-            ? memberApi.getAllMembers().catch((error) => {
-                console.warn("Data anggota tidak dapat diakses:", error);
-                return [] as Member[];
-              })
-            : Promise.resolve([] as Member[]),
-        ]);
+        let catalogErrorMessage: string | null = null;
+
+        const [simpananData, loanData, memberData, catalogData] =
+          await Promise.all([
+            canAccessFinance
+              ? simpananApi.getAllTransactions().catch((error) => {
+                  console.warn("Data simpanan tidak dapat diakses:", error);
+                  return [] as SimpananTransaksi[];
+                })
+              : Promise.resolve([] as SimpananTransaksi[]),
+            canAccessFinance
+              ? loanApi.getAllLoans().catch((error) => {
+                  console.warn("Data pinjaman tidak dapat diakses:", error);
+                  return [] as Loan[];
+                })
+              : Promise.resolve([] as Loan[]),
+            canAccessMembership
+              ? memberApi.getAllMembers().catch((error) => {
+                  console.warn("Data anggota tidak dapat diakses:", error);
+                  return [] as Member[];
+                })
+              : Promise.resolve([] as Member[]),
+            canAccessFinance
+              ? productsService
+                  .getAllProducts(1, 100)
+                  .catch((error) => {
+                    console.warn("Data katalog tidak dapat diakses:", error);
+                    catalogErrorMessage =
+                      error instanceof Error
+                        ? error.message
+                        : "Data katalog tidak dapat diakses.";
+                    return null;
+                  })
+              : Promise.resolve(null),
+          ]);
 
         if (!isMounted) {
           return;
@@ -650,6 +689,72 @@ export default function AdminDashboardPage() {
         setSimpananTransactionsList(simpananData);
         setLoanList(loanData);
         setMemberList(memberData);
+
+        if (!canAccessFinance) {
+          setCatalogSummary(null);
+          setCatalogSummaryError(null);
+        } else if (catalogData && Array.isArray(catalogData.data)) {
+          const products = catalogData.data;
+          const totalProducts =
+            catalogData.meta?.totalItems && catalogData.meta.totalItems > 0
+              ? catalogData.meta.totalItems
+              : products.length;
+          const availableProducts = products.filter(
+            (prod) => prod.isAvailable
+          ).length;
+          const visibleUnavailable = products.filter(
+            (prod) => !prod.isAvailable
+          ).length;
+          const unavailableProducts =
+            catalogData.meta?.totalItems && catalogData.meta.totalItems > 0
+              ? Math.max(totalProducts - availableProducts, visibleUnavailable)
+              : visibleUnavailable;
+
+          const categoryCounts = products.reduce(
+            (acc, prod) => {
+              const name = prod.category?.name ?? "Lainnya";
+              acc[name] = (acc[name] ?? 0) + 1;
+              return acc;
+            },
+            {} as Record<string, number>
+          );
+          const categoryEntries = Object.entries(categoryCounts)
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count);
+          const categories = categoryEntries.slice(0, 4);
+
+          const recentProducts = products
+            .slice()
+            .sort(
+              (a, b) =>
+                new Date(b.updatedAt).getTime() -
+                new Date(a.updatedAt).getTime()
+            )
+            .slice(0, 8)
+            .map((prod) => ({
+              id: prod.id,
+              name: prod.name,
+              price: prod.price,
+              isAvailable: prod.isAvailable,
+              categoryName: prod.category?.name ?? "Tidak diketahui",
+              updatedAt: prod.updatedAt,
+            }));
+
+          setCatalogSummary({
+            totalProducts,
+            availableProducts,
+            unavailableProducts,
+            categoryCount: categoryEntries.length,
+            categories,
+            recentProducts,
+          });
+          setCatalogSummaryError(null);
+        } else {
+          setCatalogSummary(null);
+          setCatalogSummaryError(
+            catalogErrorMessage ?? "Data katalog belum tersedia."
+          );
+        }
 
         let totalSimpanan = 0;
         simpananData.forEach((trx) => {
@@ -670,6 +775,13 @@ export default function AdminDashboardPage() {
           setSimpananTransactionsList([]);
           setLoanList([]);
           setMemberList([]);
+          if (canAccessFinance) {
+            setCatalogSummary(null);
+            setCatalogSummaryError("Tidak dapat memuat ringkasan katalog.");
+          } else {
+            setCatalogSummary(null);
+            setCatalogSummaryError(null);
+          }
           setData(createDashboardData(152, 850_750_000, 215_500_000));
         }
       } finally {
@@ -946,7 +1058,7 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
             <h3 className="font-bold text-gray-800">Ringkasan Simpanan</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
@@ -1005,6 +1117,122 @@ export default function AdminDashboardPage() {
                 );
               })}
             </ul>
+          </div>
+
+          <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-bold text-gray-800">Ringkasan Katalog Produk</h3>
+              {catalogSummary && (
+                <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
+                  {catalogSummary.totalProducts} produk
+                </span>
+              )}
+            </div>
+            <p className="mt-1 text-sm text-gray-500">
+              Monitoring cepat etalase website untuk mendukung keputusan stok.
+            </p>
+
+            {catalogSummary ? (
+              <>
+                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-3">
+                    <p className="text-xs uppercase tracking-wide text-emerald-700">
+                      Produk tersedia
+                    </p>
+                    <p className="mt-1 text-lg font-semibold text-emerald-900">
+                      {catalogSummary.availableProducts}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-rose-100 bg-rose-50 p-3">
+                    <p className="text-xs uppercase tracking-wide text-rose-700">
+                      Stok habis
+                    </p>
+                    <p className="mt-1 text-lg font-semibold text-rose-900">
+                      {catalogSummary.unavailableProducts}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-sky-100 bg-sky-50 p-3">
+                    <p className="text-xs uppercase tracking-wide text-sky-700">
+                      Kategori aktif
+                    </p>
+                    <p className="mt-1 text-lg font-semibold text-sky-900">
+                      {catalogSummary.categoryCount}
+                    </p>
+                  </div>
+                </div>
+
+                {catalogSummary.categories.length > 0 && (
+                  <div className="mt-5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Top kategori
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {catalogSummary.categories.map((category) => (
+                        <span
+                          key={category.name}
+                          className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs text-gray-600"
+                        >
+                          <Tag size={14} className="text-gray-400" />
+                          {category.name}
+                          <span className="text-gray-400">
+                            ({category.count})
+                          </span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-5">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Produk terbaru
+                  </p>
+                  <div className="mt-3 max-h-60 overflow-y-auto pr-1">
+                    {catalogSummary.recentProducts.length > 0 ? (
+                      <ul className="space-y-3">
+                        {catalogSummary.recentProducts.map((product) => (
+                          <li
+                            key={product.id}
+                            className="flex items-start justify-between gap-3 rounded-lg border border-gray-100 bg-white p-3 shadow-sm"
+                          >
+                            <div>
+                              <p className="text-sm font-semibold text-gray-800">
+                                {product.name}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {product.categoryName} • {formatCurrency(product.price)}
+                              </p>
+                              <p className="mt-1 text-xs text-gray-400">
+                                Diperbarui {formatDate(product.updatedAt)}
+                              </p>
+                            </div>
+                            <span
+                              className={clsx(
+                                "shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold",
+                                product.isAvailable
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : "bg-rose-100 text-rose-700"
+                              )}
+                            >
+                              {product.isAvailable ? "Tersedia" : "Stok habis"}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-gray-500">
+                        Belum ada produk dalam katalog.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="mt-4 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+                {catalogSummaryError ??
+                  "Data katalog belum dapat ditampilkan saat ini."}
+              </div>
+            )}
           </div>
         </div>
       </>

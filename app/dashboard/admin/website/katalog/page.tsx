@@ -1,10 +1,10 @@
 // Lokasi: frontend/app/dashboard/admin/website/katalog/page.tsx
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import AdminPageHeader from "@/components/AdminPageHeader";
 import Button from "@/components/Button";
-import { PlusCircle, Search, Edit, Trash2, X, Tag, EyeOff } from "lucide-react";
+import { PlusCircle, Search, Edit, Trash2, X, Tag, EyeOff, Eye } from "lucide-react";
 import Image from "next/image";
 import clsx from "clsx";
 import { productsService } from "@/services/products.service";
@@ -23,31 +23,44 @@ export default function ManajemenKatalogPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [error, setError] = useState('');
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+
+  const fetchProducts = useCallback(
+    async (showGlobalLoading: boolean = true) => {
+      try {
+        if (showGlobalLoading) {
+          setLoading(true);
+        }
+
+        let statusFilter: boolean | undefined = undefined;
+        if (filters.status === "Tersedia") statusFilter = true;
+        else if (filters.status === "Habis") statusFilter = false;
+
+        const response = await productsService.getAllProducts(
+          1,
+          100,
+          filters.kategori || undefined,
+          statusFilter
+        );
+        setProdukList(response.data);
+        setError("");
+      } catch (err) {
+        console.error("Error fetching products:", err);
+        setError("Gagal memuat data produk. Silakan coba lagi nanti.");
+        setProdukList([]);
+      } finally {
+        if (showGlobalLoading) {
+          setLoading(false);
+        }
+      }
+    },
+    [filters.kategori, filters.status]
+  );
 
   // Fetch products from the backend
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        
-        // Fetch all products for admin - with filters based on status
-        let statusFilter: boolean | undefined = undefined;
-        if (filters.status === 'Tersedia') statusFilter = true;
-        else if (filters.status === 'Habis') statusFilter = false;
-        
-        const response = await productsService.getAllProducts(1, 100, filters.kategori || undefined, statusFilter);
-        setProdukList(response.data);
-      } catch (error) {
-        console.error("Error fetching products:", error);
-        setError('Gagal memuat data produk. Silakan coba lagi nanti.');
-        setProdukList([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [filters.kategori, filters.status]);
+    fetchProducts().catch(console.error);
+  }, [fetchProducts]);
 
   // Fetch product categories
   useEffect(() => {
@@ -111,12 +124,25 @@ export default function ManajemenKatalogPage() {
     
     try {
       await productsService.deleteProduct(id);
-      // Refresh the product list
-      const response = await productsService.getAllProducts(1, 100);
-      setProdukList(response.data);
+      await fetchProducts();
     } catch (error) {
       console.error("Error deleting product:", error);
       setError('Gagal menghapus produk. Silakan coba lagi.');
+    }
+  };
+
+  const handleToggleAvailability = async (product: Product) => {
+    const newAvailability = !product.isAvailable;
+    setActionLoadingId(product.id);
+
+    try {
+      await productsService.updateProduct(product.id, { isAvailable: newAvailability });
+      await fetchProducts(false);
+    } catch (error) {
+      console.error("Error updating product availability:", error);
+      setError("Gagal memperbarui status produk. Silakan coba lagi.");
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
@@ -137,9 +163,7 @@ export default function ManajemenKatalogPage() {
         await productsService.uploadProductImage(createdOrUpdatedProduct.id, imageFile);
       }
       
-      // Refresh the product list
-      const response = await productsService.getAllProducts(1, 100);
-      setProdukList(response.data);
+      await fetchProducts();
     } catch (error) {
       console.error("Error saving product:", error);
       throw error; // Re-throw to be handled by the modal
@@ -324,7 +348,20 @@ export default function ManajemenKatalogPage() {
                     >
                       <Edit size={16}/>
                     </Button>
-                    <Button variant="outline" className="text-xs p-2"><EyeOff size={16}/></Button>
+                    <Button
+                      variant="outline"
+                      className={clsx(
+                        "text-xs p-2",
+                        !produk.isAvailable && "border-amber-200 text-amber-600 hover:bg-amber-50",
+                        actionLoadingId === produk.id && "opacity-60 cursor-not-allowed"
+                      )}
+                      onClick={() => handleToggleAvailability(produk)}
+                      disabled={actionLoadingId === produk.id}
+                      title={produk.isAvailable ? "Sembunyikan di katalog publik" : "Tampilkan di katalog publik"}
+                      aria-label={produk.isAvailable ? "Sembunyikan di katalog publik" : "Tampilkan di katalog publik"}
+                    >
+                      {produk.isAvailable ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </Button>
                     <Button 
                       variant="outline" 
                       className="text-xs p-2 text-red-600 border-red-200 hover:bg-red-50"
