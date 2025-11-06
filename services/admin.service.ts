@@ -4,8 +4,10 @@ import { MemberRegistration } from '@/types/api.types'; // Asumsi Anda punya tip
 import { Gender } from '@/types/enums';
 import {
   GuestBookEntry,
-  UpdateGuestBookDto,GalleryItem, 
-  UpdateGalleryItemDto,PaginatedResult
+  UpdateGuestBookDto,
+  GalleryItem, 
+  UpdateGalleryItemDto,
+  PaginatedResult,
 } from '@/types/api.types';
 import { 
   AgendaExpedition,
@@ -792,7 +794,7 @@ export const adminService = {
 
 
 
-
+  
   /**
    * Mengambil semua data pengurus (board members).
    * Endpoint: GET /board-positions
@@ -875,21 +877,34 @@ terminateSupervisoryPosition: (id: string): Promise<{ message: string }> => {
 
 
 
-    /**
-     * Mengambil semua data anggota.
+/**
+     * Mengambil semua data anggota (PAGINASI)
      * Endpoint: GET /members
+     * [INI PERBAIKANNYA]
      */
-    getAllMembers: (): Promise<MemberWithRole[]> => { // <-- PASTIKAN TIPE INI BENAR
-        return handleRequest(api.get<MemberWithRole[]>('/members')); 
-    },
+    getAllMembers: (
+      page: number = 1,
+      limit: number = 10
+    ): Promise<PaginatedResult<MemberWithRole>> => {
+      return handleRequest(
+        api.get<PaginatedResult<MemberWithRole>>('/members', {
+          params: { page, limit },
+        })
+      );
+    }, 
 
 
-  searchMembers: (searchTerm: string): Promise<MemberSearchResult[]> => {
-    // Pastikan endpoint '/members' dan query param 'search' benar
-    return handleRequest(api.get<MemberSearchResult[]>('/members', {
-      params: { search: searchTerm }
-    }));
-  },
+/**
+   * [PERBAIKAN] Mencari anggota berdasarkan nama atau NIK.
+   * Dibutuhkan oleh modal "Tambah Pengurus".
+   * Endpoint: GET /members?search=...
+   */
+  searchMembers: (searchTerm: string): Promise<MemberSearchResult[]> => {
+    // Pastikan backend (MembersController) mendukung query param 'search'
+    return handleRequest(api.get<MemberSearchResult[]>('/members', {
+      params: { search: searchTerm }
+    }));
+  },
 
   /**
    * Menambah anggota baru.

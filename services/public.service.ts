@@ -1,10 +1,10 @@
 // services/public.service.ts
 import { api, parseApiError } from '@/lib/api';
 import { 
+  PaginatedNewsResult,
   CreateGuestBookDto, 
   GuestBookEntry,
   News,
-  PaginatedNewsResult,
   ApiErrorResponse 
 } from '@/types/api.types';
 import { 
