@@ -33,6 +33,7 @@ adminApi.interceptors.request.use(
     const publicEndpoints = [
       '/admin/auth/login', // Ganti ke login admin
       '/admin/auth/refresh', // Ganti ke refresh admin
+      '/admin/platform-settings/public',
       // Endpoint lain yang mungkin public untuk admin
     ];
     

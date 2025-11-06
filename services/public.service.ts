@@ -231,4 +231,13 @@ export const publicService = {
       `/articles/${slug}`
     );
   },
+
+  /**
+   * [BARU] Mengambil profil publik koperasi (nama, alamat, dll)
+   * Dijalankan di Client, menggunakan 'api' (tenant-aware)
+   * Endpoint: GET /cooperative-profile
+   */
+  getPublicCooperativeProfile: (): Promise<{ displayName: string; [key: string]: unknown }> => {
+    return handleRequest(api.get<{ displayName: string }>('/cooperative-profile/public'));
+  },
 };

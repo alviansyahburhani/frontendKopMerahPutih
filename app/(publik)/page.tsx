@@ -27,6 +27,10 @@ import type {
 } from "@/services/public.service"; 
 // --- (Akhir Impor Baru) ---
 
+const MAIN_DOMAINS = [
+  'localhost', 
+  'sistemkoperasi.id' // Ganti jika domain produksi Anda berbeda
+];
 
 /* =========================
    TIPE DATA & UTIL
@@ -69,7 +73,7 @@ export default function Home() {
   // --- [TAMBAHAN] State untuk Galeri ---
   const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
   const [dataLoading, setDataLoading] = useState(true); 
-
+  const [isMainDomain, setIsMainDomain] = useState(false);
   // Search interaktif
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<KoperasiSearchResult[]>([]);
@@ -81,6 +85,10 @@ export default function Home() {
 
   // --- [DIMODIFIKASI] Ambil data awal (termasuk Galeri) ---
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const hostname = window.location.hostname;
+      setIsMainDomain(MAIN_DOMAINS.includes(hostname));
+    }
     const loadData = async () => {
       setDataLoading(true); 
       try {
@@ -90,7 +98,7 @@ export default function Home() {
           publicService.getPublishedProductsClient(1, 4),
           publicService.getPublicGalleryClient(1, 6) // Ambil 6 gambar
         ]);
-
+        
         // 2. Mapping data Berita (News) ke NewsItem (untuk NewsCard)
         const newsData: NewsItem[] = newsResult.data.map((n: News): NewsItem => ({
           id: n.id,
@@ -227,6 +235,7 @@ export default function Home() {
           </p>
 
           {/* SEARCH BAR (Tidak berubah) */}
+          {isMainDomain && (
           <div ref={searchWrapperRef} className="mt-8 mb-4 max-w-lg w-full relative">
             <form className="relative flex w-full">
               <label htmlFor="search-koperasi" className="sr-only">
@@ -278,7 +287,7 @@ export default function Home() {
               </div>
             )}
           </div>
-
+          )}
           {/* CTA BUTTONS (Tidak berubah) */}
           <div className="mt-6 flex flex-col sm:flex-row justify-center gap-4 w-full max-w-md">
             <Link href="/auth/login" className="w-full sm:w-auto">

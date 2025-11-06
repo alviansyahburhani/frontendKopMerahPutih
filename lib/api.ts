@@ -39,6 +39,7 @@ api.interceptors.request.use(
       '/auth/refresh',
       '/public/register',
       '/member-registrations',
+      '/cooperative-profile/public',
     ];
     
     // Khusus untuk endpoint upload, biarkan header 'Content-Type' di-manage
