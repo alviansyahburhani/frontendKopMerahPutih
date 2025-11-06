@@ -10,16 +10,8 @@ import React, {
 } from "react";
 import AdminPageHeader from "@/components/AdminPageHeader";
 import Button from "@/components/Button";
-import {
-  PlusCircle,
-  Search,
-  Eye,
-  Edit,
-  Trash2,
-  XCircle,
-} from "lucide-react";
+import { PlusCircle, Search, Eye, Edit, Trash2, XCircle } from "lucide-react";
 import clsx from "clsx";
-// [PERUBAHAN] Impor tipe dan DTO dari service, bukan didefinisikan di sini
 import {
   adminService,
   SupervisoryPosition,
@@ -30,12 +22,28 @@ import {
 import { ApiErrorResponse } from "@/types/api.types";
 
 /* ============================================================
+    UTIL KECIL
+============================================================ */
+// backend kamu kadang kirim message: string | string[]
+const normalizeErrorMessage = (msg: string | string[] | undefined, fallback: string) => {
+  if (!msg) return fallback;
+  return Array.isArray(msg) ? msg.join(", ") : msg;
+};
+
+// kadang getAllMembers() punya bentuk { data: [...] }
+const normalizeMembersResult = (
+  res: MemberWithRole[] | { data?: MemberWithRole[] }
+): MemberWithRole[] => {
+  if (Array.isArray(res)) return res;
+  if (res && Array.isArray(res.data)) return res.data;
+  return [];
+};
+
+/* ============================================================
     TIPE DATA UI
 ============================================================ */
-// Tipe PengawasUI tetap di sini karena ini adalah tipe data
-// spesifik untuk tampilan halaman ini (gabungan dari 2 sumber data)
 type PengawasUI = {
-  id: string; // id dari tabel supervisory_positions
+  id: string;
   no: number;
   memberId: string;
   namaLengkap: string;
@@ -57,7 +65,6 @@ type PengawasUI = {
 /* ============================================================
     HELPER: gabungkan data dari /supervisory-positions + /members
 ============================================================ */
-// Helper ini juga tetap di sini
 function buildPengawasUI(
   supervisory: SupervisoryPosition[],
   members: MemberWithRole[]
@@ -104,7 +111,7 @@ const TambahPengawasModal = ({
   onSuccess,
 }: {
   onClose: () => void;
-  onSuccess: () => void; // setelah sukses → parent akan refetch
+  onSuccess: () => void;
 }) => {
   const [members, setMembers] = useState<MemberWithRole[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(true);
@@ -116,22 +123,24 @@ const TambahPengawasModal = ({
   const [loading, setLoading] = useState(false);
   const [searchMember, setSearchMember] = useState("");
 
-  // ambil daftar anggota
   useEffect(() => {
     const fetchMembers = async () => {
       try {
         setLoadingMembers(true);
-        const data = await adminService.getAllMembers();
-        const aktif = data.filter((m) => m.status === "ACTIVE");
+        const res = await adminService.getAllMembers();
+        const allMembers = normalizeMembersResult(res);
+        const aktif = allMembers.filter((m) => m.status === "ACTIVE");
         setMembers(aktif);
       } catch (err) {
         const apiErr = err as ApiErrorResponse;
-        setError(apiErr.message || "Gagal memuat daftar anggota");
+        setError(
+          normalizeErrorMessage(apiErr.message, "Gagal memuat daftar anggota")
+        );
       } finally {
         setLoadingMembers(false);
       }
     };
-    fetchMembers();
+    void fetchMembers();
   }, []);
 
   const filteredMembers = useMemo(() => {
@@ -169,12 +178,13 @@ const TambahPengawasModal = ({
     try {
       setLoading(true);
       await adminService.createSupervisoryPosition(dto);
-      // selesai → serahkan ke parent untuk refetch
       onSuccess();
       onClose();
     } catch (err) {
       const apiErr = err as ApiErrorResponse;
-      alert(apiErr.message || "Gagal menambah pengawas");
+      alert(
+        normalizeErrorMessage(apiErr.message, "Gagal menambah pengawas")
+      );
     } finally {
       setLoading(false);
     }
@@ -273,7 +283,7 @@ const TambahPengawasModal = ({
 };
 
 /* ============================================================
-    MODAL: EDIT PENGAWAS (PATCH)
+    MODAL: EDIT PENGAWAS
 ============================================================ */
 const EditPengawasModal = ({
   pengawas,
@@ -282,7 +292,7 @@ const EditPengawasModal = ({
 }: {
   pengawas: PengawasUI;
   onClose: () => void;
-  onSuccess: () => void; // habis update → refetch
+  onSuccess: () => void;
 }) => {
   const [formData, setFormData] = useState<PengawasUI>(pengawas);
   const [loading, setLoading] = useState(false);
@@ -293,8 +303,7 @@ const EditPengawasModal = ({
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]:
-        name === "tanggalBerhenti" && value === "" ? null : value,
+      [name]: name === "tanggalBerhenti" && value === "" ? null : value,
     }));
   };
 
@@ -310,11 +319,13 @@ const EditPengawasModal = ({
     try {
       setLoading(true);
       await adminService.updateSupervisoryPosition(formData.id, dto);
-      onSuccess(); // parent refetch
+      onSuccess();
       onClose();
     } catch (err) {
       const apiErr = err as ApiErrorResponse;
-      alert(apiErr.message || "Gagal mengupdate pengawas");
+      alert(
+        normalizeErrorMessage(apiErr.message, "Gagal mengupdate pengawas")
+      );
     } finally {
       setLoading(false);
     }
@@ -461,26 +472,20 @@ const DetailPengawasModal = ({
     { label: "Jabatan", value: pengawas.jabatan },
     {
       label: "Tanggal Diangkat",
-      value: new Date(pengawas.tanggalDiangkat).toLocaleDateString(
-        "id-ID",
-        {
-          day: "2-digit",
-          month: "long",
-          year: "numeric",
-        }
-      ),
+      value: new Date(pengawas.tanggalDiangkat).toLocaleDateString("id-ID", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      }),
     },
     {
       label: "Tanggal Berhenti",
       value: pengawas.tanggalBerhenti
-        ? new Date(pengawas.tanggalBerhenti).toLocaleDateString(
-            "id-ID",
-            {
-              day: "2-digit",
-              month: "long",
-              year: "numeric",
-            }
-          )
+        ? new Date(pengawas.tanggalBerhenti).toLocaleDateString("id-ID", {
+            day: "2-digit",
+            month: "long",
+            year: "numeric",
+          })
         : "Masih Aktif",
     },
     { label: "Alasan Berhenti", value: pengawas.alasanBerhenti || "-" },
@@ -651,25 +656,27 @@ export default function DaftarPengawasPage() {
   const [pengawasToView, setPengawasToView] = useState<PengawasUI | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // fungsi refetch supaya bisa dipakai tambah/edit/hapus
   const refetchPengawas = async () => {
     try {
       setLoading(true);
-      const [supv, members] = await Promise.all([
+      const [supv, membersRes] = await Promise.all([
         adminService.getAllSupervisoryPositions(),
         adminService.getAllMembers(),
       ]);
+
+      const members = normalizeMembersResult(membersRes);
       const ui = buildPengawasUI(supv, members);
       setPengawasList(ui);
     } catch (err) {
       const apiErr = err as ApiErrorResponse;
-      setError(apiErr.message || "Gagal memuat data pengawas");
+      setError(
+        normalizeErrorMessage(apiErr.message, "Gagal memuat data pengawas")
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  // load awal
   useEffect(() => {
     void refetchPengawas();
   }, []);
@@ -696,7 +703,9 @@ export default function DaftarPengawasPage() {
       alert("Pengawas berhasil diberhentikan.");
     } catch (err) {
       const apiErr = err as ApiErrorResponse;
-      alert(apiErr.message || "Gagal memberhentikan pengawas");
+      alert(
+        normalizeErrorMessage(apiErr.message, "Gagal memberhentikan pengawas")
+      );
     }
   };
 
@@ -731,7 +740,8 @@ export default function DaftarPengawasPage() {
             Buku Daftar Pengawas
           </h2>
           <p className="text-center text-xs text-gray-500 mt-2">
-            Data jabatan diambil dari /supervisory-positions, identitas dari /members
+            Data jabatan diambil dari /supervisory-positions, identitas dari
+            /members
           </p>
         </div>
 
@@ -825,7 +835,6 @@ export default function DaftarPengawasPage() {
         </div>
       </div>
 
-      {/* MODAL */}
       {isTambahModalOpen && (
         <TambahPengawasModal
           onClose={() => setTambahModalOpen(false)}
