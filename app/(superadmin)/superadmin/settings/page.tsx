@@ -1,275 +1,242 @@
-// Lokasi: frontend/app/(superadmin)/superadmin/settings/page.tsx
+// GANTI SELURUH ISI FILE DENGAN KODE INI:
+// Lokasi: frontendKopMerahPutih-main/app/(superadmin)/superadmin/settings/page.tsx
+
 "use client";
 
-import { useEffect, useState } from "react";
-import Button from "@/components/Button";
-import { Settings as SettingsIcon, Globe, Wrench, Save, ShieldCheck, Mail, Image as ImageIcon } from "lucide-react";
-import clsx from "clsx";
+import React, { useState, useEffect, ChangeEvent } from 'react';
+import { toast } from 'react-toastify'; // <-- 1. PERBAIKI IMPOR: Gunakan react-toastify
+import { superAdminService, UpdatePlatformSettingDto } from '@/services/superadmin.service';
+import AdminPageHeader from '@/components/AdminPageHeader';
+import { Upload, Save } from 'lucide-react'; // <-- Tambahkan ikon Save
+import Image from 'next/image';
 
-type PlatformSettings = {
-  namaPlatform: string;
-  domainUtama: string;
-  logoUrl: string;
-  faviconUrl: string;
-  primaryColor: "red" | "blue" | "green" | "amber" | "purple";
-  allowNewTenant: boolean;
-  requireApproval: boolean;
-  enforce2FA: boolean;
-  maintenanceMode: boolean;
-  maintenanceMessage: string;
-  emailSender: string;
-  emailHost: string;
-};
+// Tipe untuk state pengaturan
+type SettingsState = Record<string, string>;
 
-const defaultSettings: PlatformSettings = {
-  namaPlatform: "Sistem Koperasi ID",
-  domainUtama: "https://sistemkoperasi.id",
-  logoUrl: "",
-  faviconUrl: "",
-  primaryColor: "red",
-  allowNewTenant: true,
-  requireApproval: true,
-  enforce2FA: false,
-  maintenanceMode: false,
-  maintenanceMessage: "Sedang pemeliharaan singkat. Mohon kembali beberapa saat lagi.",
-  emailSender: "no-reply@sistemkoperasi.id",
-  emailHost: "smtp.example.com",
-};
+// Daftar pengaturan yang kita inginkan
+// (Kunci ini harus SAMA PERSIS dengan 'key' di database)
+const settingKeys = [
+  { key: 'namaPlatform', label: 'Nama Platform' },
+  { key: 'heroTitle', label: 'Judul Hero Landing Page' },
+  { key: 'heroSubtitle', label: 'Subjudul Hero Landing Page' },
+  { key: 'promoTitle', label: 'Judul Bagian Promosi' },
+  { key: 'promoSubtitle', label: 'Subjudul Bagian Promosi' },
+];
 
-const Skeleton = ({ className = "" }: { className?: string }) => (
-  <div className={clsx("animate-pulse bg-gray-200 rounded-md", className)} />
-);
-
-function Toggle({ checked, onChange, label, description }: { checked: boolean; onChange: (val: boolean) => void; label: string; description?: string; }) {
-  return (
-    <div className="flex items-start justify-between gap-4">
-      <div>
-        <p className="font-semibold text-gray-800">{label}</p>
-        {description && <p className="text-sm text-gray-500">{description}</p>}
-      </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        onClick={() => onChange(!checked)}
-        className={clsx(
-          "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
-          checked ? "bg-red-600" : "bg-gray-300"
-        )}
-      >
-        <span
-          className={clsx(
-            "inline-block h-5 w-5 transform rounded-full bg-white transition",
-            checked ? "translate-x-5" : "translate-x-1"
-          )}
-        />
-      </button>
-    </div>
-  );
-}
+// Key untuk gambar
+const heroImageKey = 'heroImageUrl';
 
 export default function SuperAdminSettingsPage() {
+  const [settings, setSettings] = useState<SettingsState>({});
   const [loading, setLoading] = useState(true);
-  const [settings, setSettings] = useState<PlatformSettings>(defaultSettings);
-  const [saving, setSaving] = useState(false);
+  const [isSavingText, setIsSavingText] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
+  // Load data saat halaman dibuka
   useEffect(() => {
-    const t = setTimeout(() => {
-      // Simulasi fetch pengaturan
-      setSettings(defaultSettings);
-      setLoading(false);
-    }, 600);
-    return () => clearTimeout(t);
+    async function loadSettings() {
+      try {
+        setLoading(true);
+        // Panggil service yang mengambil SEMUA settings
+        const fetchedSettings: Record<string, string> = await superAdminService.getAllPlatformSettings();
+
+        
+
+        setSettings(fetchedSettings);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Error tidak diketahui';
+        toast.error(`Gagal memuat pengaturan: ${errorMessage}`);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadSettings();
   }, []);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target as HTMLInputElement;
-    setSettings((prev) => ({ ...prev, [name]: value }));
+  // Handler untuk input teks
+  const handleTextChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setSettings(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleToggle = (key: keyof PlatformSettings) => (val: boolean) => {
-    setSettings((prev) => ({ ...prev, [key]: val }));
+  // 2. DESAIN BARU: Fungsi untuk menyimpan SEMUA pengaturan teks sekaligus
+  const handleSaveAllTextSettings = async () => {
+    setIsSavingText(true);
+    const toastId = toast.loading('Menyimpan pengaturan teks...'); // <-- 3. FEEDBACK JELAS
+
+    try {
+      // Buat payload array sesuai DTO backend
+      const updates: UpdatePlatformSettingDto[] = settingKeys.map(({ key }) => ({
+        key: key,
+        value: settings[key] || '' // Kirim string kosong jika tidak diisi
+      }));
+
+      // Panggil service 'updateSettings' (PATCH /admin/platform-settings)
+      await superAdminService.updateSettings(updates);
+
+      // Gunakan toast.update untuk notifikasi 'react-toastify'
+      toast.update(toastId, {
+        render: 'Pengaturan berhasil disimpan!',
+        type: 'success',
+        isLoading: false,
+        autoClose: 5000
+      });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Error';
+      toast.update(toastId, {
+        render: `Gagal menyimpan: ${errorMessage}`,
+        type: 'error',
+        isLoading: false,
+        autoClose: 5000
+      });
+    } finally {
+      setIsSavingText(false);
+    }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
-      alert("Pengaturan platform disimpan (simulasi).");
-    }, 800);
+  // Handler untuk upload gambar (sudah menggunakan toastify)
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setIsUploadingImage(true);
+      const toastId = toast.loading('Mengunggah gambar hero...'); // <-- 3. FEEDBACK JELAS
+
+      try {
+        // Panggil service upload (POST /admin/platform-settings/upload-image)
+        const updatedSetting = await superAdminService.uploadPlatformSettingImage(heroImageKey, file);
+
+        // Update state lokal dengan URL gambar baru dari server
+        setSettings(prev => ({ ...prev, [heroImageKey]: updatedSetting.value }));
+
+        toast.update(toastId, {
+          render: 'Gambar hero berhasil diperbarui!',
+          type: 'success',
+          isLoading: false,
+          autoClose: 5000
+        });
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Error';
+        toast.update(toastId, {
+          render: `Gagal mengunggah: ${errorMessage}`,
+          type: 'error',
+          isLoading: false,
+          autoClose: 5000
+        });
+      } finally {
+        setIsUploadingImage(false);
+      }
+    }
   };
 
   if (loading) {
     return (
-      <div className="space-y-8">
-        <div className="flex items-center gap-3">
-          <Skeleton className="h-9 w-64" />
-          <Skeleton className="h-5 w-48" />
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white p-6 rounded-xl shadow-lg">
-              <Skeleton className="h-6 w-56 mb-4" />
-              <div className="space-y-3">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-              </div>
-            </div>
-            <div className="bg-white p-6 rounded-xl shadow-lg">
-              <Skeleton className="h-6 w-48 mb-4" />
-              <div className="grid grid-cols-2 gap-4">
-                <Skeleton className="h-10" />
-                <Skeleton className="h-10" />
-              </div>
-            </div>
-          </div>
-          <div className="space-y-6">
-            <div className="bg-white p-6 rounded-xl shadow-lg">
-              <Skeleton className="h-6 w-60 mb-4" />
-              <Skeleton className="h-20 w-full" />
-            </div>
-            <div className="bg-white p-6 rounded-xl shadow-lg">
-              <Skeleton className="h-6 w-56 mb-4" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full mt-2" />
-            </div>
-          </div>
-        </div>
+      <div className="container mx-auto p-4 md:p-6">
+        <AdminPageHeader
+          title="Pengaturan Platform"
+          description="Atur tampilan dan data global untuk landing page utama."
+        />
+        <p>Memuat pengaturan...</p>
       </div>
     );
   }
 
+  // 4. DESAIN BARU: JSX yang lebih modern
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
-            <SettingsIcon /> Pengaturan Platform
-          </h1>
-          <p className="text-gray-600 mt-1">Atur identitas, branding, autentikasi, dan mode pemeliharaan platform.</p>
-        </div>
-        <Button type="submit" disabled={saving}>
-          <Save className="mr-2" size={18} /> {saving ? "Menyimpan..." : "Simpan Perubahan"}
-        </Button>
-      </div>
+    <div className="container mx-auto p-4 md:p-6">
+      <AdminPageHeader
+        title="Pengaturan Platform"
+        description="Atur tampilan dan data global untuk landing page utama."
+      />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Kolom kiri: Form utama */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Identitas */}
-          <div className="bg-white p-6 rounded-xl shadow-lg">
-            <div className="flex items-center gap-2 mb-4">
-              <Globe className="text-gray-600" />
-              <h2 className="text-lg font-bold text-gray-800">Identitas Platform</h2>
-            </div>
+      <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="namaPlatform">Nama Platform</label>
-                <input id="namaPlatform" name="namaPlatform" value={settings.namaPlatform} onChange={handleChange} className="w-full p-2 border rounded-lg" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="domainUtama">Domain Utama</label>
-                <input id="domainUtama" name="domainUtama" value={settings.domainUtama} onChange={handleChange} className="w-full p-2 border rounded-lg" />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 flex items-center gap-2" htmlFor="logoUrl"><ImageIcon size={16}/> URL Logo</label>
-                <input id="logoUrl" name="logoUrl" value={settings.logoUrl} onChange={handleChange} placeholder="https://..." className="w-full p-2 border rounded-lg" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="faviconUrl">URL Favicon</label>
-                <input id="faviconUrl" name="faviconUrl" value={settings.faviconUrl} onChange={handleChange} placeholder="https://..." className="w-full p-2 border rounded-lg" />
-              </div>
-            </div>
-          </div>
+        {/* Kolom Pengaturan Teks */}
+        <div className="bg-white p-6 rounded-lg shadow space-y-6 flex flex-col">
+          <h3 className="text-lg font-semibold text-gray-900">Konten Landing Page</h3>
 
-          {/* Branding */}
-          <div className="bg-white p-6 rounded-xl shadow-lg">
-            <div className="flex items-center gap-2 mb-4">
-              <ShieldCheck className="text-gray-600" />
-              <h2 className="text-lg font-bold text-gray-800">Branding</h2>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="primaryColor">Warna Utama</label>
-                <select id="primaryColor" name="primaryColor" value={settings.primaryColor} onChange={handleChange} className="w-full p-2 border rounded-lg bg-white">
-                  <option value="red">Merah</option>
-                  <option value="blue">Biru</option>
-                  <option value="green">Hijau</option>
-                  <option value="amber">Amber</option>
-                  <option value="purple">Ungu</option>
-                </select>
-              </div>
-              <div className="flex items-end gap-3">
-                <span className="text-sm text-gray-600">Pratinjau:</span>
-                <div className="flex items-center gap-2">
-                  <span className="inline-block w-8 h-8 rounded-full bg-red-600" aria-label="Merah" />
-                  <span className="inline-block w-8 h-8 rounded-full bg-blue-600" aria-label="Biru" />
-                  <span className="inline-block w-8 h-8 rounded-full bg-green-600" aria-label="Hijau" />
-                  <span className="inline-block w-8 h-8 rounded-full bg-amber-500" aria-label="Amber" />
-                  <span className="inline-block w-8 h-8 rounded-full bg-purple-600" aria-label="Ungu" />
+          <div className="flex-1 space-y-4">
+            {settingKeys.map(({ key, label }) => (
+              <div key={key}>
+                <label htmlFor={key} className="block text-sm font-medium text-gray-700">
+                  {label}
+                </label>
+                <div className="mt-1">
+                  {/* Input full-width yang lebih bersih */}
+                  <input
+                    type="text"
+                    name={key}
+                    id={key}
+                    className="flex-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-red-500 focus:ring-brand-red-500 sm:text-sm"
+                    value={settings[key] || ''} // <-- Data sekarang akan muncul di sini
+                    onChange={handleTextChange}
+                  />
                 </div>
               </div>
+            ))}
+          </div>
+
+          {/* Tombol simpan tunggal di bagian bawah card */}
+          <div className="mt-6 border-t pt-4">
+            <button
+              type="button"
+              onClick={handleSaveAllTextSettings}
+              disabled={isSavingText}
+              className="inline-flex w-full justify-center items-center gap-2 rounded-md border border-transparent bg-brand-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand-red-700 focus:outline-none focus:ring-2 focus:ring-brand-red-500 focus:ring-offset-2 disabled:bg-gray-300"
+            >
+              <Save size={16} />
+              {isSavingText ? 'Menyimpan...' : 'Simpan Perubahan Teks'}
+            </button>
+          </div>
+        </div>
+
+        {/* Kolom Pengaturan Gambar */}
+        <div className="bg-white p-6 rounded-lg shadow space-y-4">
+          <h3 className="text-lg font-semibold text-gray-900">Gambar Hero</h3>
+
+          <div className="w-full">
+            <p className="block text-sm font-medium text-gray-700 mb-2">Pratinjau Gambar Hero</p>
+            {/* Menggunakan <Image> dari next/image */}
+            <div className="w-full aspect-video rounded-md bg-gray-100 overflow-hidden flex items-center justify-center relative">
+              {settings[heroImageKey] ? (
+                <Image
+                  src={settings[heroImageKey]}
+                  alt="Hero preview"
+                  className="w-full h-full object-cover"
+                  fill={true}
+                  priority
+                />
+              ) : (
+                <span className="text-gray-400">Belum ada gambar</span>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="hero-image-upload" className="block text-sm font-medium text-gray-700">
+              Ganti Gambar Hero (.jpg, .png, .webp)
+            </label>
+            <div className="mt-1 flex items-center">
+              <label
+                htmlFor="hero-image-upload"
+                className={`cursor-pointer inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-red-500 focus:ring-offset-2 ${isUploadingImage ? 'opacity-50' : ''}`}
+              >
+                <Upload size={16} />
+                {isUploadingImage ? 'Mengunggah...' : 'Pilih File'}
+                <input
+                  id="hero-image-upload"
+                  name="hero-image-upload"
+                  type="file"
+                  className="sr-only"
+                  accept="image/png, image/jpeg, image/webp"
+                  onChange={handleFileChange}
+                  disabled={isUploadingImage}
+                />
+              </label>
             </div>
           </div>
         </div>
 
-        {/* Kolom kanan */}
-        <div className="space-y-6">
-          {/* Maintenance */}
-          <div className="bg-white p-6 rounded-xl shadow-lg">
-            <div className="flex items-center gap-2 mb-4">
-              <Wrench className="text-gray-600" />
-              <h2 className="text-lg font-bold text-gray-800">Mode Pemeliharaan</h2>
-            </div>
-            <div className="space-y-4">
-              <Toggle checked={settings.maintenanceMode} onChange={handleToggle("maintenanceMode")}
-                label="Aktifkan Mode Pemeliharaan"
-                description="Seluruh tenant akan melihat halaman pemeliharaan."
-              />
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="maintenanceMessage">Pesan Pemeliharaan</label>
-                <textarea id="maintenanceMessage" name="maintenanceMessage" rows={3} value={settings.maintenanceMessage} onChange={handleChange} className="w-full p-2 border rounded-lg" />
-              </div>
-            </div>
-          </div>
-
-          {/* Auth/Registrasi */}
-          <div className="bg-white p-6 rounded-xl shadow-lg">
-            <div className="flex items-center gap-2 mb-4">
-              <ShieldCheck className="text-gray-600" />
-              <h2 className="text-lg font-bold text-gray-800">Autentikasi & Registrasi</h2>
-            </div>
-            <div className="space-y-4">
-              <Toggle checked={settings.allowNewTenant} onChange={handleToggle("allowNewTenant")} label="Izinkan Pendaftaran Tenant Baru" />
-              <Toggle checked={settings.requireApproval} onChange={handleToggle("requireApproval")} label="Butuh Persetujuan Super Admin" />
-              <Toggle checked={settings.enforce2FA} onChange={handleToggle("enforce2FA")} label="Wajibkan 2FA untuk Admin" />
-            </div>
-          </div>
-
-          {/* Email */}
-          <div className="bg-white p-6 rounded-xl shadow-lg">
-            <div className="flex items-center gap-2 mb-4">
-              <Mail className="text-gray-600" />
-              <h2 className="text-lg font-bold text-gray-800">Email Notifikasi</h2>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="emailSender">Email Pengirim</label>
-                <input id="emailSender" name="emailSender" value={settings.emailSender} onChange={handleChange} className="w-full p-2 border rounded-lg" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="emailHost">SMTP Host</label>
-                <input id="emailHost" name="emailHost" value={settings.emailHost} onChange={handleChange} className="w-full p-2 border rounded-lg" />
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
-    </form>
+    </div>
   );
 }
