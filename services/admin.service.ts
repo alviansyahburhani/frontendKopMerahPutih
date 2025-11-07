@@ -1122,5 +1122,24 @@ terminateSupervisoryPosition: (id: string): Promise<{ message: string }> => {
     return handleRequest(api.post<News>(`/articles/${id}/image`, formData));
   },
 
+  /**
+   * Mengambil semua saran dari pengawas (Hak Akses: Pengurus)
+   * Endpoint: GET /supervisor-suggestion (Asumsi)
+   * * CATATAN: Pastikan tipe MemberSuggestionResponse sesuai. 
+   * Asumsi kita gunakan tipe yang sama dengan Saran Anggota.
+   */
+  getSupervisorSuggestions: (): Promise<MemberSuggestionResponse[]> => {
+    // Pastikan endpoint '/supervisor-suggestion' ini BENAR sesuai backend Anda
+    return handleRequest(api.get<MemberSuggestionResponse[]>('/supervisor-suggestion'));
+  },
+
+  /**
+   * Menanggapi saran pengawas (Hak Akses: Pengurus)
+   * Endpoint: POST /supervisor-suggestion/:id/respond
+   */
+  respondToSupervisorSuggestion: (id: string, dto: RespondSuggestionDto): Promise<MemberSuggestionResponse> => {
+    return handleRequest(api.post<MemberSuggestionResponse>(`/supervisor-suggestion/${id}/respond`, dto));
+  },
+
 
 };
