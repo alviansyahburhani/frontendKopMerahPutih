@@ -8,11 +8,10 @@ interface RejectTenantDto {
 }
 
 export interface PlatformSetting {
-  key: string; // Sesuai DTO
-  value: string; // Sesuai DTO
-  // id dan updatedAt mungkin tidak selalu dikembalikan, buat opsional
-  id?: string;
-  updatedAt?: Date;
+  id: string;
+  key: string;
+  value: string;
+  updatedAt: Date;
 }
 
 // Tipe untuk DTO update
@@ -137,16 +136,12 @@ export const superAdminService = {
     );
   },
 
-  /**
-   * [BARU] Mengunggah gambar pengaturan platform (Untuk Admin)
-   * Endpoint: POST /admin/platform-settings/image
-   */
   uploadPlatformSettingImage: (
     key: string,
     file: File
   ): Promise<PlatformSetting> => {
     const formData = new FormData();
-    formData.append("settingKey", key);
+    formData.append("key", key);
     formData.append("file", file);
 
     return handleRequest(
