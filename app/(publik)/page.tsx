@@ -27,6 +27,8 @@ import type {
 } from "@/services/public.service"; 
 // --- (Akhir Impor Baru) ---
 import { superAdminService } from "@/services/superadmin.service";
+import MainDomainFeatures, { getIconForFeature } from "@/components/MainDomainFeatures";
+import SubdomainFeatures from "@/components/SubdomainFeatures";
 const MAIN_DOMAINS = [
   'localhost', 
   'sistemkoperasi.id' // Ganti jika domain produksi Anda berbeda
@@ -113,6 +115,37 @@ export default function Home() {
     
     // Fallback jika tidak ada data atau bukan di domain utama
     return '[]';
+  }, [isMainDomain, platformSettings]);
+
+  const mainFeaturesData = useMemo(() => {
+    if (!isMainDomain) return [];
+    
+    return [
+      { 
+        title: platformSettings.featuresItem1Title, 
+        description: platformSettings.featuresItem1Desc, 
+        href: platformSettings.featuresItem1Href || '#',
+        icon: getIconForFeature(platformSettings.featuresItem1Icon || 'BookUser')
+      },
+      { 
+        title: platformSettings.featuresItem2Title, 
+        description: platformSettings.featuresItem2Desc, 
+        href: platformSettings.featuresItem2Href || '#',
+        icon: getIconForFeature(platformSettings.featuresItem2Icon || 'PiggyBank')
+      },
+      { 
+        title: platformSettings.featuresItem3Title, 
+        description: platformSettings.featuresItem3Desc, 
+        href: platformSettings.featuresItem3Href || '#',
+        icon: getIconForFeature(platformSettings.featuresItem3Icon || 'HandCoins')
+      },
+      { 
+        title: platformSettings.featuresItem4Title, 
+        description: platformSettings.featuresItem4Desc, 
+        href: platformSettings.featuresItem4Href || '#',
+        icon: getIconForFeature(platformSettings.featuresItem4Icon || 'ClipboardList')
+      },
+    ];
   }, [isMainDomain, platformSettings]);
 
   // --- [DIMODIFIKASI] Ambil data awal (termasuk Galeri) ---
@@ -396,28 +429,15 @@ export default function Home() {
       </section>
 
       {/* FITUR (Tidak berubah) */}
-      <section className="py-12 md:py-16 bg-gray-50 border-y">
-        <div className="container mx-auto px-4 grid md:grid-cols-3 gap-6">
-          <div className="rounded-2xl bg-white p-6 shadow-sm border">
-            <h3 className="text-xl font-bold text-brand-red-600">Simpanan</h3>
-            <p className="mt-2 text-gray-600">
-              Pantau saldo dan histori simpanan dengan transparan.
-            </p>
-          </div>
-          <div className="rounded-2xl bg-white p-6 shadow-sm border">
-            <h3 className="text-xl font-bold text-brand-red-600">Pinjaman</h3>
-            <p className="mt-2 text-gray-600">
-              Ajukan pinjaman online, proses cepat dan terukur.
-            </p>
-          </div>
-          <div className="rounded-2xl bg-white p-6 shadow-sm border">
-            <h3 className="text-xl font-bold text-brand-red-600">Katalog</h3>
-            <p className="mt-2 text-gray-600">
-              Jelajahi produk/jasa koperasi untuk anggota dan publik.
-            </p>
-          </div>
-        </div>
-      </section>
+      {isMainDomain ? (
+        <MainDomainFeatures 
+          title={platformSettings.featuresMainTitle}
+          subtitle={platformSettings.featuresMainSubtitle}
+          features={mainFeaturesData}
+        />
+      ) : (
+        <SubdomainFeatures />
+      )}
 
       {/* --- [DIMODIFIKASI] GALERI --- */}
       <section className="py-12 md:py-16 bg-white">

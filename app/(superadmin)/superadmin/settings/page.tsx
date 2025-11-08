@@ -162,9 +162,6 @@ export default function PlatformSettingsPage() {
       <Toaster position="top-right" />
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-semibold">Pengaturan Platform</h1>
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
-        </Button>
       </div>
 
       {/* --- BAGIAN HERO --- */}
@@ -261,7 +258,7 @@ export default function PlatformSettingsPage() {
               />
             </div>
           </div>
-
+      
           {/* Konten Kanan: Image Uploader BARU */}
           <div className="space-y-4">
             <ImageSettingUploader
@@ -275,6 +272,72 @@ export default function PlatformSettingsPage() {
       </div>
       {/* === AKHIR SECTION BARU === */}
 
+          {/* --- BAGIAN FITUR (16 BUKU) --- */}
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <h2 className="text-xl font-semibold mb-4 border-b pb-2">
+          Bagian Fitur Unggulan (Domain Utama)
+        </h2>
+        
+        <InputSetting 
+          name="featuresMainTitle" 
+          label="Judul Utama Fitur"
+          as="textarea"
+          value={settings.featuresMainTitle ?? null}
+          onChange={handleChange}
+        />
+        <InputSetting 
+          name="featuresMainSubtitle" 
+          label="Subjudul Fitur"
+          as="textarea"
+          value={settings.featuresMainSubtitle ?? null}
+          onChange={handleChange}
+        />
+        
+        <p className="text-sm font-medium text-gray-700 mt-6 mb-2">
+          Detail Kartu Fitur (Rekomendasi 4 item)
+        </p>
+
+        {/* Fitur 1 */}
+        <div className="border p-3 rounded-md mb-3 bg-gray-50">
+          <h3 className="font-semibold mb-2">Kartu Fitur 1</h3>
+          <InputSetting name="featuresItem1Title" label="Judul Kartu 1" value={settings.featuresItem1Title ?? null} onChange={handleChange} />
+          <InputSetting name="featuresItem1Desc" label="Deskripsi Kartu 1" as="textarea" value={settings.featuresItem1Desc ?? null} onChange={handleChange} />
+          <InputSetting name="featuresItem1Icon" label="Ikon Kartu 1 (Nama Ikon)" value={settings.featuresItem1Icon ?? null} onChange={handleChange} />
+          <InputSetting name="featuresItem1Href" label="Link Kartu 1 (cth: /buku-anggota)" value={settings.featuresItem1Href ?? null} onChange={handleChange} />
+        </div>
+        
+        {/* Fitur 2 */}
+        <div className="border p-3 rounded-md mb-3 bg-gray-50">
+          <h3 className="font-semibold mb-2">Kartu Fitur 2</h3>
+          <InputSetting name="featuresItem2Title" label="Judul Kartu 2" value={settings.featuresItem2Title ?? null} onChange={handleChange} />
+          <InputSetting name="featuresItem2Desc" label="Deskripsi Kartu 2" as="textarea" value={settings.featuresItem2Desc ?? null} onChange={handleChange} />
+          <InputSetting name="featuresItem2Icon" label="Ikon Kartu 2 (Nama Ikon)" value={settings.featuresItem2Icon ?? null} onChange={handleChange} />
+          <InputSetting name="featuresItem2Href" label="Link Kartu 2 (cth: /simpanan)" value={settings.featuresItem2Href ?? null} onChange={handleChange} />
+        </div>
+        
+        {/* Fitur 3 */}
+        <div className="border p-3 rounded-md mb-3 bg-gray-50">
+          <h3 className="font-semibold mb-2">Kartu Fitur 3</h3>
+          <InputSetting name="featuresItem3Title" label="Judul Kartu 3" value={settings.featuresItem3Title ?? null} onChange={handleChange} />
+          <InputSetting name="featuresItem3Desc" label="Deskripsi Kartu 3" as="textarea" value={settings.featuresItem3Desc ?? null} onChange={handleChange} />
+          <InputSetting name="featuresItem3Icon" label="Ikon Kartu 3 (Nama Ikon)" value={settings.featuresItem3Icon ?? null} onChange={handleChange} />
+          <InputSetting name="featuresItem3Href" label="Link Kartu 3 (cth: /pinjaman)" value={settings.featuresItem3Href ?? null} onChange={handleChange} />
+        </div>
+        
+        {/* Fitur 4 */}
+        <div className="border p-3 rounded-md mb-3 bg-gray-50">
+          <h3 className="font-semibold mb-2">Kartu Fitur 4</h3>
+          <InputSetting name="featuresItem4Title" label="Judul Kartu 4" value={settings.featuresItem4Title ?? null} onChange={handleChange} />
+          <InputSetting name="featuresItem4Desc" label="Deskripsi Kartu 4" as="textarea" value={settings.featuresItem4Desc ?? null} onChange={handleChange} />
+          <InputSetting name="featuresItem4Icon" label="Ikon Kartu 4 (Nama Ikon)" value={settings.featuresItem4Icon ?? null} onChange={handleChange} />
+          <InputSetting name="featuresItem4Href" label="Link Kartu 4 (cth: /notulen)" value={settings.featuresItem4Href ?? null} onChange={handleChange} />
+        </div>
+
+        <p className="text-xs text-gray-500 mt-2">
+          *Nama Ikon: Gunakan nama ikon dari Lucide React (cth: `BookUser`, `PiggyBank`, `HandCoins`, `ClipboardList`).
+        </p>
+
+      </div>
       <div className="flex justify-end mt-6">
         <Button onClick={handleSave} disabled={saving}>
           {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
