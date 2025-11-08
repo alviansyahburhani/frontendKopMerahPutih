@@ -1,269 +1,347 @@
-// GANTI SELURUH ISI FILE DENGAN KODE INI:
-// Lokasi: frontendKopMerahPutih-main/app/(superadmin)/superadmin/settings/page.tsx
+'use client';
 
-"use client";
-
-import React, { useState, useEffect, ChangeEvent } from 'react';
-import { toast } from 'react-toastify';
+import React, { useState, useEffect } from 'react';
 import { superAdminService, UpdatePlatformSettingDto } from '@/services/superadmin.service';
-import AdminPageHeader from '@/components/AdminPageHeader';
-import { Upload, Save, Image as ImageIcon } from 'lucide-react';
-import Image from 'next/image';
+import Button from '@/components/Button';
+import { ImageSettingUploader } from '@/components/admin/ImageSettingUploader';
+import QuoteFader from '@/components/QuoteFader';
+import { toast, Toaster } from 'react-hot-toast';
 
-// Tipe untuk state pengaturan
-type SettingsState = Record<string, string>;
+type SettingsState = Record<string, string | null>;
 
-// 1. FOKUS HANYA PADA HERO SECTION (sesuai permintaan)
-const heroTextKeys = [
-  { key: 'heroTitle', label: 'Judul Hero', placeholder: 'Misal: Koperasi Digital Modern' },
-  { key: 'heroSubtitle', label: 'Subjudul Hero', placeholder: 'Misal: Bergabunglah bersama ribuan anggota lainnya...' },
-];
-const heroImageKey = 'heroImageUrl';
+// ==========================================================
+// PERBAIKAN BUG "SATU HURUF":
+// Komponen InputSetting dan QuoteSetting dipindahkan ke LUAR
+// fungsi PlatformSettingsPage.
+// ==========================================================
 
-export default function SuperAdminSettingsPage() {
+// Tipe untuk props helper component
+type InputSettingProps = {
+  name: string;
+  label: string;
+  as?: 'input' | 'textarea';
+  value: string | null;
+  onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+};
+
+/**
+ * Helper component untuk input teks.
+ * Didefinisikan di luar agar tidak re-render & kehilangan fokus.
+ */
+const InputSetting: React.FC<InputSettingProps> = ({ name, label, as = 'input', value, onChange }) => {
+  const Component = as;
+  return (
+    <div className="mb-4">
+      <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">
+        {label}
+      </label>
+      <Component
+        id={name}
+        name={name}
+        value={value ?? ''} // Tampilkan string kosong jika null
+        onChange={onChange}
+        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+        rows={as === 'textarea' ? 4 : undefined}
+      />
+    </div>
+  );
+};
+
+/**
+ * Helper component untuk grup input Quote.
+ * Didefinisikan di luar agar tidak re-render & kehilangan fokus.
+ */
+const QuoteSetting = ({ baseKey, valueText, valueAuthor, onChange }: { 
+  baseKey: string, 
+  valueText: string | null, 
+  valueAuthor: string | null,
+  onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void 
+}) => (
+  <div className="border p-3 rounded-md mb-2">
+    <InputSetting 
+      name={`${baseKey}Text`} 
+      label="Teks Kutipan" 
+      as="textarea" 
+      value={valueText}
+      onChange={onChange}
+    />
+    <InputSetting 
+      name={`${baseKey}Author`} 
+      label="Author Kutipan" 
+      value={valueAuthor}
+      onChange={onChange}
+    />
+  </div>
+);
+
+
+// ==========================================================
+// Komponen Halaman Utama
+// ==========================================================
+export default function PlatformSettingsPage() {
   const [settings, setSettings] = useState<SettingsState>({});
+  const [originalSettings, setOriginalSettings] = useState<SettingsState>({});
   const [loading, setLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  
-  // File preview untuk gambar
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  // Load data saat halaman dibuka
   useEffect(() => {
-    async function loadSettings() {
+    const fetchSettings = async () => {
       try {
         setLoading(true);
-        // Panggil service yang mengembalikan OBJEK { key: 'value', ... }
-        const fetchedSettings = await superAdminService.getAllPlatformSettings();
-        setSettings(fetchedSettings);
-        
-        // Set preview awal jika gambar sudah ada
-        if (fetchedSettings[heroImageKey]) {
-          setImagePreview(fetchedSettings[heroImageKey]);
-        }
-      } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Error tidak diketahui';
-        toast.error(`Gagal memuat pengaturan: ${errorMessage}`);
+        const data = await superAdminService.getAllPlatformSettings();
+        setSettings(data);
+        setOriginalSettings(data);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Gagal mengambil pengaturan platform.';
+        toast.error(message);
       } finally {
         setLoading(false);
       }
-    }
-    loadSettings();
+    };
+    fetchSettings();
   }, []);
 
-  // Handler untuk input teks
-  const handleTextChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  // Fungsi handleChange sekarang akan diteruskan sebagai prop
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setSettings(prev => ({ ...prev, [name]: value }));
+    setSettings((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
-  // Handler untuk memilih file (hanya preview)
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
+  const handleUploadSuccess = (key: string, newUrl: string) => {
+    setSettings((prev) => ({
+      ...prev,
+      [key]: newUrl,
+    }));
+    setOriginalSettings((prev) => ({
+      ...prev,
+      [key]: newUrl,
+    }));
+    toast.success('Gambar berhasil diunggah dan tersimpan!');
+  };
 
-      // Validasi frontend (sesuai backend)
-      const maxSize = 5 * 1024 * 1024; // 5MB
-      if (file.size > maxSize) {
-        toast.error('Ukuran file terlalu besar! Maksimal 5 MB.');
-        e.target.value = ''; // Reset input
-        return;
+  const handleSave = async () => {
+    setSaving(true);
+
+    const changedSettings: UpdatePlatformSettingDto[] = [];
+    Object.keys(settings).forEach((key) => {
+      if (settings[key] !== originalSettings[key]) {
+        changedSettings.push({ 
+          key, 
+          value: settings[key] ?? ''
+        });
       }
-      
-      setImageFile(file); // Simpan file untuk di-upload
-      setImagePreview(URL.createObjectURL(file)); // Buat preview URL
-    }
-  };
+    });
 
-  // Handler untuk "Simpan Perubahan" (teks dan gambar sekaligus)
-  const handleSaveAll = async () => {
-    setIsSaving(true);
-    const toastId = toast.loading('Menyimpan perubahan...');
+    if (changedSettings.length === 0) {
+      toast.success('Tidak ada perubahan untuk disimpan.');
+      setSaving(false);
+      return;
+    }
 
     try {
-      // 1. Upload gambar JIKA ada file baru
-      if (imageFile) {
-        toast.update(toastId, { render: 'Mengunggah gambar...' });
-        
-        const updatedSetting = await superAdminService.uploadPlatformSettingImage(
-          heroImageKey, 
-          imageFile
-        );
-        
-        // Update state settings agar preview konsisten
-        // 'updatedSetting.value' berisi URL baru dari server
-        setSettings(prev => ({ ...prev, [heroImageKey]: updatedSetting.value }));
-        setImageFile(null); // Hapus file dari antrian
-      }
-
-      // 2. Siapkan payload DTO untuk teks
-      toast.update(toastId, { render: 'Menyimpan data teks...' });
-      const textUpdates: UpdatePlatformSettingDto[] = heroTextKeys.map(({ key }) => ({
-        key: key,
-        value: settings[key] || ''
-      }));
-
-      // 3. Kirim pembaruan teks (backend Anda menerima array)
-      await superAdminService.updateSettings(textUpdates);
-
-      toast.update(toastId, { 
-        render: 'Semua perubahan berhasil disimpan!', 
-        type: 'success', 
-        isLoading: false, 
-        autoClose: 5000 
-      });
-
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Error';
-      // Cek jika ini error DTO dari upload
-      if (errorMessage.includes('400')) {
-        toast.update(toastId, { 
-          render: `Gagal menyimpan: Error 400. Pastikan service 'key' sudah benar.`, 
-          type: 'error', 
-          isLoading: false, 
-          autoClose: 5000 
-        });
-      } else {
-         toast.update(toastId, { 
-          render: `Gagal menyimpan: ${errorMessage}`, 
-          type: 'error', 
-          isLoading: false, 
-          autoClose: 5000 
-        });
-      }
+      await superAdminService.updateSettings(changedSettings);
+      setOriginalSettings(settings);
+      toast.success('Pengaturan berhasil disimpan!');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Gagal menyimpan pengaturan.';
+      toast.error(message);
     } finally {
-      setIsSaving(false);
+      setSaving(false);
     }
   };
 
   if (loading) {
-    return (
-      <div className="container mx-auto p-4 md:p-6">
-        <AdminPageHeader
-          title="Pengaturan Hero Section"
-          description="Atur konten dinamis untuk halaman utama (portal) Anda."
-        />
-        <p>Memuat pengaturan...</p>
-      </div>
-    );
+    return <div className="p-6">Memuat pengaturan...</div>;
   }
 
-  // 4. DESAIN BARU: JSX yang lebih modern
   return (
-    <div className="container mx-auto p-4 md:p-6">
-      <AdminPageHeader
-        title="Pengaturan Hero Section"
-        description="Atur konten dinamis untuk halaman utama (portal) Anda."
-      />
+    <div className="p-6 space-y-6">
+      <Toaster position="top-right" />
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-semibold">Pengaturan Platform</h1>
+      </div>
 
-      {/* --- KITA FOKUSKAN SEMUA DALAM SATU FORM --- */}
-      <div className="mt-8 max-w-3xl mx-auto">
-        <div className="bg-white p-6 sm:p-8 rounded-lg shadow space-y-8">
-          
-          {/* --- BAGIAN KONTEN TEKS --- */}
+      {/* --- BAGIAN HERO --- */}
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <h2 className="text-xl font-semibold mb-4 border-b pb-2">Bagian Hero</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Konten Teks Hero</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Ini akan mengubah judul dan subjudul di halaman depan utama.
-            </p>
-            <div className="mt-6 space-y-4">
-              {heroTextKeys.map(({ key, label, placeholder }) => (
-                <div key={key}>
-                  <label htmlFor={key} className="block text-sm font-medium text-gray-700">
-                    {label}
-                  </label>
-                  <div className="mt-1">
-                    <input
-                      type="text"
-                      name={key}
-                      id={key}
-                      className="flex-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-red-500 focus:ring-brand-red-500 sm:text-sm"
-                      value={settings[key] || ''}
-                      placeholder={placeholder}
-                      onChange={handleTextChange}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <InputSetting 
+              name="heroTitle" 
+              label="Judul Hero" 
+              value={settings.heroTitle ?? null}
+              onChange={handleChange}
+            />
+            <InputSetting 
+              name="heroSubtitle" 
+              label="Subjudul Hero" 
+              as="textarea" 
+              value={settings.heroSubtitle ?? null}
+              onChange={handleChange}
+            />
           </div>
-
-          <hr className="border-gray-200" />
-
-          {/* --- BAGIAN GAMBAR --- */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Gambar Hero</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Ganti gambar latar belakang. (Maks 5MB, .jpg, .png, .webp, .svg)
-            </p>
-            
-            {/* Pratinjau Gambar */}
-            <div className="mt-4 w-full aspect-video rounded-md bg-gray-100 overflow-hidden flex items-center justify-center relative border">
-              {imagePreview ? (
-                <Image 
-                  src={imagePreview} 
-                  alt="Hero preview" 
-                  className="w-full h-full object-cover"
-                  fill={true}
-                  priority
-                />
-              ) : (
-                <div className="text-center text-gray-400">
-                  <ImageIcon size={48} />
-                  <p>Belum ada gambar</p>
-                </div>
-              )}
-            </div>
-
-            {/* Tombol Upload */}
-            <div className="mt-4">
-              <label 
-                htmlFor="hero-image-upload" 
-                className={`cursor-pointer inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-red-500 focus:ring-offset-2 ${isSaving ? 'opacity-50' : ''}`}
-              >
-                <Upload size={16} />
-                {imageFile ? `File: ${imageFile.name}` : 'Pilih File Baru...'}
-                <input 
-                  id="hero-image-upload" 
-                  name="hero-image-upload" 
-                  type="file" 
-                  className="sr-only"
-                  accept="image/png, image/jpeg, image/webp, image/svg+xml"
-                  onChange={handleFileChange}
-                  disabled={isSaving}
-                />
-              </label>
-              {imageFile && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setImageFile(null);
-                    setImagePreview(settings[heroImageKey] || null); // Kembali ke gambar tersimpan
-                  }}
-                  className="ml-3 text-sm text-gray-500 hover:text-red-600"
-                  disabled={isSaving}
-                >
-                  Batal
-                </button>
-              )}
-            </div>
+            <ImageSettingUploader
+              label="Gambar Latar Hero"
+              settingKey="heroImageUrl"
+              currentImageUrl={settings.heroImageUrl ?? null}
+              onUploadSuccess={handleUploadSuccess}
+            />
           </div>
-
-          {/* --- TOMBOL SIMPAN UTAMA --- */}
-          <div className="mt-8 border-t pt-6">
-            <button
-              type="button"
-              onClick={handleSaveAll}
-              disabled={isSaving}
-              className="inline-flex w-full justify-center items-center gap-2 rounded-md border border-transparent bg-brand-red-600 px-6 py-3 text-base font-medium text-white shadow-sm hover:bg-brand-red-700 focus:outline-none focus:ring-2 focus:ring-brand-red-500 focus:ring-offset-2 disabled:bg-gray-300 disabled:cursor-not-allowed"
-            >
-              <Save size={20} />
-              {isSaving ? 'Menyimpan...' : 'Simpan Perubahan Hero'}
-            </button>
-          </div>
-
         </div>
+      </div>
+
+      {/* === SECTION BARU (DENGAN PERBAIKAN + GAMBAR) === */}
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <h2 className="text-xl font-semibold mb-4 border-b pb-2">
+          Bagian Fondasi (Setelah Hero)
+        </h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Konten Kiri: Teks + Quotes */}
+          <div className="space-y-4">
+            <InputSetting 
+              name="section2Title" 
+              label="Judul Bagian 2"
+              as="textarea"
+              value={settings.section2Title ?? null}
+              onChange={handleChange}
+            />
+            <InputSetting 
+              name="section2Subtitle" 
+              label="Subjudul Bagian 2" 
+              as="textarea" 
+              value={settings.section2Subtitle ?? null}
+              onChange={handleChange}
+            />
+            
+            <div className="mt-4 border rounded-lg p-4 bg-gray-50">
+              <h3 className="text-lg font-semibold mb-2">Pratinjau Teks:</h3>
+              <h4 className="text-xl font-bold text-gray-900">
+                {settings.section2Title || "Membangun Ekonomi Kerakyatan Berbasis Gotong Royong"}
+              </h4>
+              <p className="mt-2 text-gray-600">
+                {settings.section2Subtitle || "Koperasi Desa/Kelurahan Merah Putih dibentuk..."}
+              </p>
+            </div>
+
+            {/* Kutipan dipindah ke kolom kiri */}
+            <h3 className="text-lg font-medium pt-4">Kutipan Beranimasi</h3>
+            <QuoteSetting 
+              baseKey="section2Quote1" 
+              valueText={settings.section2Quote1Text ?? null}
+              valueAuthor={settings.section2Quote1Author ?? null}
+              onChange={handleChange}
+            />
+            <QuoteSetting 
+              baseKey="section2Quote2" 
+              valueText={settings.section2Quote2Text ?? null}
+              valueAuthor={settings.section2Quote2Author ?? null}
+              onChange={handleChange}
+            />
+            
+            <div className="mt-4 border rounded-lg p-4 bg-gray-50 h-32 flex items-center">
+              <QuoteFader
+                quotes={[
+                  {
+                    text: settings.section2Quote1Text || "“Koperasi adalah alatnya orang lemah... Tapi kalau bersatu, mereka jadi kekuatan...”",
+                    author: settings.section2Quote1Author || "Presiden Prabowo Subianto",
+                  },
+                  {
+                    text: settings.section2Quote2Text || "Teks kutipan 2...",
+                    author: settings.section2Quote2Author || "Author 2",
+                  },
+                ]}
+              />
+            </div>
+          </div>
+      
+          {/* Konten Kanan: Image Uploader BARU */}
+          <div className="space-y-4">
+            <ImageSettingUploader
+              label="Gambar Bagian 2"
+              settingKey="section2ImageUrl" // <-- Key baru untuk gambar section 2
+              currentImageUrl={settings.section2ImageUrl ?? null}
+              onUploadSuccess={handleUploadSuccess}
+            />
+          </div>
+        </div>
+      </div>
+      {/* === AKHIR SECTION BARU === */}
+
+          {/* --- BAGIAN FITUR (16 BUKU) --- */}
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <h2 className="text-xl font-semibold mb-4 border-b pb-2">
+          Bagian Fitur Unggulan (Domain Utama)
+        </h2>
+        
+        <InputSetting 
+          name="featuresMainTitle" 
+          label="Judul Utama Fitur"
+          as="textarea"
+          value={settings.featuresMainTitle ?? null}
+          onChange={handleChange}
+        />
+        <InputSetting 
+          name="featuresMainSubtitle" 
+          label="Subjudul Fitur"
+          as="textarea"
+          value={settings.featuresMainSubtitle ?? null}
+          onChange={handleChange}
+        />
+        
+        <p className="text-sm font-medium text-gray-700 mt-6 mb-2">
+          Detail Kartu Fitur (Rekomendasi 4 item)
+        </p>
+
+        {/* Fitur 1 */}
+        <div className="border p-3 rounded-md mb-3 bg-gray-50">
+          <h3 className="font-semibold mb-2">Kartu Fitur 1</h3>
+          <InputSetting name="featuresItem1Title" label="Judul Kartu 1" value={settings.featuresItem1Title ?? null} onChange={handleChange} />
+          <InputSetting name="featuresItem1Desc" label="Deskripsi Kartu 1" as="textarea" value={settings.featuresItem1Desc ?? null} onChange={handleChange} />
+          <InputSetting name="featuresItem1Icon" label="Ikon Kartu 1 (Nama Ikon)" value={settings.featuresItem1Icon ?? null} onChange={handleChange} />
+          <InputSetting name="featuresItem1Href" label="Link Kartu 1 (cth: /buku-anggota)" value={settings.featuresItem1Href ?? null} onChange={handleChange} />
+        </div>
+        
+        {/* Fitur 2 */}
+        <div className="border p-3 rounded-md mb-3 bg-gray-50">
+          <h3 className="font-semibold mb-2">Kartu Fitur 2</h3>
+          <InputSetting name="featuresItem2Title" label="Judul Kartu 2" value={settings.featuresItem2Title ?? null} onChange={handleChange} />
+          <InputSetting name="featuresItem2Desc" label="Deskripsi Kartu 2" as="textarea" value={settings.featuresItem2Desc ?? null} onChange={handleChange} />
+          <InputSetting name="featuresItem2Icon" label="Ikon Kartu 2 (Nama Ikon)" value={settings.featuresItem2Icon ?? null} onChange={handleChange} />
+          <InputSetting name="featuresItem2Href" label="Link Kartu 2 (cth: /simpanan)" value={settings.featuresItem2Href ?? null} onChange={handleChange} />
+        </div>
+        
+        {/* Fitur 3 */}
+        <div className="border p-3 rounded-md mb-3 bg-gray-50">
+          <h3 className="font-semibold mb-2">Kartu Fitur 3</h3>
+          <InputSetting name="featuresItem3Title" label="Judul Kartu 3" value={settings.featuresItem3Title ?? null} onChange={handleChange} />
+          <InputSetting name="featuresItem3Desc" label="Deskripsi Kartu 3" as="textarea" value={settings.featuresItem3Desc ?? null} onChange={handleChange} />
+          <InputSetting name="featuresItem3Icon" label="Ikon Kartu 3 (Nama Ikon)" value={settings.featuresItem3Icon ?? null} onChange={handleChange} />
+          <InputSetting name="featuresItem3Href" label="Link Kartu 3 (cth: /pinjaman)" value={settings.featuresItem3Href ?? null} onChange={handleChange} />
+        </div>
+        
+        {/* Fitur 4 */}
+        <div className="border p-3 rounded-md mb-3 bg-gray-50">
+          <h3 className="font-semibold mb-2">Kartu Fitur 4</h3>
+          <InputSetting name="featuresItem4Title" label="Judul Kartu 4" value={settings.featuresItem4Title ?? null} onChange={handleChange} />
+          <InputSetting name="featuresItem4Desc" label="Deskripsi Kartu 4" as="textarea" value={settings.featuresItem4Desc ?? null} onChange={handleChange} />
+          <InputSetting name="featuresItem4Icon" label="Ikon Kartu 4 (Nama Ikon)" value={settings.featuresItem4Icon ?? null} onChange={handleChange} />
+          <InputSetting name="featuresItem4Href" label="Link Kartu 4 (cth: /notulen)" value={settings.featuresItem4Href ?? null} onChange={handleChange} />
+        </div>
+
+        <p className="text-xs text-gray-500 mt-2">
+          *Nama Ikon: Gunakan nama ikon dari Lucide React (cth: `BookUser`, `PiggyBank`, `HandCoins`, `ClipboardList`).
+        </p>
+
+      </div>
+      <div className="flex justify-end mt-6">
+        <Button onClick={handleSave} disabled={saving}>
+          {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
+        </Button>
       </div>
     </div>
   );

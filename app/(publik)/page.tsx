@@ -1,7 +1,7 @@
 // Lokasi: alviansyahburhani/frontendkopmerahputih/frontendKopMerahPutih-2d28dba419adfcc919625f86c3f6e3cf404c0119/app/(publik)/page.tsx
 "use client";
 
-import { useState, useEffect, ChangeEvent, useRef } from "react";
+import { useState, useEffect, ChangeEvent, useRef, useMemo} from "react";
 import Button from "@/components/Button";
 import Image from "next/image";
 // --- [MODIFIKASI] Hapus impor GALLERY_IMAGES ---
@@ -27,6 +27,8 @@ import type {
 } from "@/services/public.service"; 
 // --- (Akhir Impor Baru) ---
 import { superAdminService } from "@/services/superadmin.service";
+import MainDomainFeatures, { getIconForFeature } from "@/components/MainDomainFeatures";
+import SubdomainFeatures from "@/components/SubdomainFeatures";
 const MAIN_DOMAINS = [
   'localhost', 
   'sistemkoperasi.id' // Ganti jika domain produksi Anda berbeda
@@ -83,6 +85,68 @@ export default function Home() {
 
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchWrapperRef = useRef<HTMLDivElement | null>(null);
+
+  // --- [TAMBAHKAN BLOK INI] ---
+  // Gunakan useMemo untuk membuat string JSON dari platformSettings
+  const quotesJsonStringForFader = useMemo(() => {
+    // Hanya jalankan jika kita di domain utama DAN settings sudah terisi
+    if (isMainDomain && (platformSettings.section2Quote1Text || platformSettings.section2Quote2Text)) {
+      const quotesArray = [];
+
+      // Cek dan tambahkan kutipan 1
+      if (platformSettings.section2Quote1Text && platformSettings.section2Quote1Author) {
+        quotesArray.push({
+          text: platformSettings.section2Quote1Text,
+          author: platformSettings.section2Quote1Author,
+        });
+      }
+      
+      // Cek dan tambahkan kutipan 2
+      if (platformSettings.section2Quote2Text && platformSettings.section2Quote2Author) {
+        quotesArray.push({
+          text: platformSettings.section2Quote2Text,
+          author: platformSettings.section2Quote2Author,
+        });
+      }
+
+      // Ubah array menjadi string JSON
+      return JSON.stringify(quotesArray);
+    }
+    
+    // Fallback jika tidak ada data atau bukan di domain utama
+    return '[]';
+  }, [isMainDomain, platformSettings]);
+
+  const mainFeaturesData = useMemo(() => {
+    if (!isMainDomain) return [];
+    
+    return [
+      { 
+        title: platformSettings.featuresItem1Title, 
+        description: platformSettings.featuresItem1Desc, 
+        href: platformSettings.featuresItem1Href || '#',
+        icon: getIconForFeature(platformSettings.featuresItem1Icon || 'BookUser')
+      },
+      { 
+        title: platformSettings.featuresItem2Title, 
+        description: platformSettings.featuresItem2Desc, 
+        href: platformSettings.featuresItem2Href || '#',
+        icon: getIconForFeature(platformSettings.featuresItem2Icon || 'PiggyBank')
+      },
+      { 
+        title: platformSettings.featuresItem3Title, 
+        description: platformSettings.featuresItem3Desc, 
+        href: platformSettings.featuresItem3Href || '#',
+        icon: getIconForFeature(platformSettings.featuresItem3Icon || 'HandCoins')
+      },
+      { 
+        title: platformSettings.featuresItem4Title, 
+        description: platformSettings.featuresItem4Desc, 
+        href: platformSettings.featuresItem4Href || '#',
+        icon: getIconForFeature(platformSettings.featuresItem4Icon || 'ClipboardList')
+      },
+    ];
+  }, [isMainDomain, platformSettings]);
 
   // --- [DIMODIFIKASI] Ambil data awal (termasuk Galeri) ---
   useEffect(() => {
@@ -231,6 +295,8 @@ export default function Home() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [searchWrapperRef]);
 
+ 
+
   /* =========================
      RENDER
      ========================= */
@@ -328,57 +394,50 @@ export default function Home() {
         </div>
       </section>
 
-      {/* SEJARAH (Tidak berubah) */}
+    
+      {/* SEJARAH (DIMODIFIKASI) */}
       <section className="py-16 md:py-20 bg-white">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div className="relative w-full h-80 lg:h-full rounded-2xl overflow-hidden shadow-lg">
+              {/* --- MODIFIKASI: Gunakan gambar dinamis dari settings --- */}
               <Image
-                src="https://cdn.pixabay.com/photo/2024/06/18/21/37/bali-8838762_640.jpg"
-                alt="Tentang Koperasi Merah Putih"
+                src={platformSettings.section2ImageUrl || "https://cdn.pixabay.com/photo/2024/06/18/21/37/bali-8838762_640.jpg"} // Fallback ke gambar statis
+                alt={platformSettings.section2Title || "Tentang Koperasi Merah Putih"}
                 fill
                 className="object-cover"
                 sizes="(max-width: 1024px) 100vw, 50vw"
               />
             </div>
             <div className="space-y-6">
+              {/* --- MODIFIKASI: Gunakan judul dinamis dari settings --- */}
               <h2 className="text-3xl md:text-4xl font-extrabold text-brand-red-600 leading-tight">
-                Membangun Ekonomi Kerakyatan Berbasis Gotong Royong
+                {platformSettings.section2Title || "Membangun Ekonomi Kerakyatan Berbasis Gotong Royong"}
               </h2>
+              {/* --- MODIFIKASI: Gunakan subjudul dinamis dari settings --- */}
               <p className="text-gray-700 leading-relaxed">
-                Koperasi Desa/Kelurahan Merah Putih dibentuk berdasarkan semangat
-                Pasal 33 UUD 1945, sebagai fondasi untuk memperkuat ketahanan
-                ekonomi rakyat.
+                {platformSettings.section2Subtitle || "Koperasi Desa/Kelurahan Merah Putih dibentuk berdasarkan semangat Pasal 33 UUD 1945..."}
               </p>
-              <QuoteFader />
+              {/* --- MODIFIKASI: Masukkan data quotes ke QuoteFader --- */}
+              <QuoteFader 
+                quotesJsonString={quotesJsonStringForFader} 
+                isMainDomain={isMainDomain} 
+              />
             </div>
           </div>
         </div>
       </section>
 
       {/* FITUR (Tidak berubah) */}
-      <section className="py-12 md:py-16 bg-gray-50 border-y">
-        <div className="container mx-auto px-4 grid md:grid-cols-3 gap-6">
-          <div className="rounded-2xl bg-white p-6 shadow-sm border">
-            <h3 className="text-xl font-bold text-brand-red-600">Simpanan</h3>
-            <p className="mt-2 text-gray-600">
-              Pantau saldo dan histori simpanan dengan transparan.
-            </p>
-          </div>
-          <div className="rounded-2xl bg-white p-6 shadow-sm border">
-            <h3 className="text-xl font-bold text-brand-red-600">Pinjaman</h3>
-            <p className="mt-2 text-gray-600">
-              Ajukan pinjaman online, proses cepat dan terukur.
-            </p>
-          </div>
-          <div className="rounded-2xl bg-white p-6 shadow-sm border">
-            <h3 className="text-xl font-bold text-brand-red-600">Katalog</h3>
-            <p className="mt-2 text-gray-600">
-              Jelajahi produk/jasa koperasi untuk anggota dan publik.
-            </p>
-          </div>
-        </div>
-      </section>
+      {isMainDomain ? (
+        <MainDomainFeatures 
+          title={platformSettings.featuresMainTitle}
+          subtitle={platformSettings.featuresMainSubtitle}
+          features={mainFeaturesData}
+        />
+      ) : (
+        <SubdomainFeatures />
+      )}
 
       {/* --- [DIMODIFIKASI] GALERI --- */}
       <section className="py-12 md:py-16 bg-white">
