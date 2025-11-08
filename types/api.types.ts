@@ -1,5 +1,5 @@
 // frontend/types/api.types.ts
-import { Gender, Role } from './enums';
+import { Gender, Role } from './enums'; // Impor dari file enums.ts yang sudah benar
 
 // Tipe error standar dari NestJS
 export interface ApiErrorResponse {
@@ -70,42 +70,6 @@ export interface JwtPayload {
   role: Role; // <- Ini sekarang akan menggunakan enum Role (Pengurus, Anggota, Pengawas)
   fullName?: string;
   tenantId?: string;
-}
-
-// Tipe data lengkap untuk profil anggota yang login
-export interface MemberProfile {
-  id: string;
-  nik: string;
-  fullName: string;
-  gender: Gender;
-  placeOfBirth: string;
-  dateOfBirth: string; 
-  occupation: string;
-  address: string;
-  phoneNumber: string;
-  memberNumber: string; 
-  joinDate: string; 
-  status: 'ACTIVE' | 'INACTIVE'; 
-  email: string;
-
-  signatureUrl: string | null; // Ini kolom URL (yang saat ini null)
-  signatureData: string | null; // [TAMBAHKAN INI] Ini kolom Base64 (yang terisi)
-  
-  user?: {
-    id: string;
-    email: string;
-    role: Role;
-  };
-}
-
-// [BARU] DTO untuk MENGIRIM update profil (PATCH /profile/me)
-// Sesuai dengan file update-my-profile.dto.ts Anda
-export interface UpdateMyProfileDto {
-  fullName?: string;
-  occupation?: string;
-  address?: string;
-  phoneNumber?: string;
-  signatureData?: string | null; // <-- Ini yang kita kirim (PATCH)
 }
 
 // === Simpanan ===
@@ -193,7 +157,6 @@ export interface CreateMemberRegistrationDto {
   address: string;
   phoneNumber: string;
   targetSubdomain?: string;
-  signatureData: string;
 }
 
 export interface MemberRegistrationResponse {

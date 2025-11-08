@@ -1,6 +1,6 @@
 // frontend/services/member.service.ts
 import { api, parseApiError } from '@/lib/api';
-import { SimpananSaldo,MemberProfile,UpdateMyProfileDto, Loan } from '@/types/api.types';
+import { SimpananSaldo, Loan } from '@/types/api.types';
 import {GuestBookEntry } from '@/types/api.types';
 
 /**
@@ -40,25 +40,6 @@ export interface MemberSuggestionResponse {
 }
 
 export const memberService = {
-
-  /**
-   * [BARU] Mengambil data profil lengkap anggota yang login.
-   * Endpoint: GET /profile/me
-   */
-  getMyProfile: (): Promise<MemberProfile> => {
-    return handleRequest(api.get<MemberProfile>('/profile/me'));
-  },
-
-/**
-   * [MODIFIKASI] Memperbarui data profil anggota yang login.
-   * Menggunakan DTO yang benar (UpdateMyProfileDto)
-   */
-  updateMyProfile: (
-    dto: UpdateMyProfileDto, // <-- [DIUBAH] Gunakan DTO yang benar
-  ): Promise<MemberProfile> => {
-    // Endpoint tetap sama (PATCH /profile/me)
-    return handleRequest(api.patch<MemberProfile>('/profile/me', dto));
-  },
 
 
 
