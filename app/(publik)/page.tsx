@@ -1,7 +1,7 @@
 // Lokasi: alviansyahburhani/frontendkopmerahputih/frontendKopMerahPutih-2d28dba419adfcc919625f86c3f6e3cf404c0119/app/(publik)/page.tsx
 "use client";
 
-import { useState, useEffect, ChangeEvent, useRef } from "react";
+import { useState, useEffect, ChangeEvent, useRef, useMemo} from "react";
 import Button from "@/components/Button";
 import Image from "next/image";
 // --- [MODIFIKASI] Hapus impor GALLERY_IMAGES ---
@@ -83,6 +83,37 @@ export default function Home() {
 
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchWrapperRef = useRef<HTMLDivElement | null>(null);
+
+  // --- [TAMBAHKAN BLOK INI] ---
+  // Gunakan useMemo untuk membuat string JSON dari platformSettings
+  const quotesJsonStringForFader = useMemo(() => {
+    // Hanya jalankan jika kita di domain utama DAN settings sudah terisi
+    if (isMainDomain && (platformSettings.section2Quote1Text || platformSettings.section2Quote2Text)) {
+      const quotesArray = [];
+
+      // Cek dan tambahkan kutipan 1
+      if (platformSettings.section2Quote1Text && platformSettings.section2Quote1Author) {
+        quotesArray.push({
+          text: platformSettings.section2Quote1Text,
+          author: platformSettings.section2Quote1Author,
+        });
+      }
+      
+      // Cek dan tambahkan kutipan 2
+      if (platformSettings.section2Quote2Text && platformSettings.section2Quote2Author) {
+        quotesArray.push({
+          text: platformSettings.section2Quote2Text,
+          author: platformSettings.section2Quote2Author,
+        });
+      }
+
+      // Ubah array menjadi string JSON
+      return JSON.stringify(quotesArray);
+    }
+    
+    // Fallback jika tidak ada data atau bukan di domain utama
+    return '[]';
+  }, [isMainDomain, platformSettings]);
 
   // --- [DIMODIFIKASI] Ambil data awal (termasuk Galeri) ---
   useEffect(() => {
@@ -231,6 +262,8 @@ export default function Home() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [searchWrapperRef]);
 
+ 
+
   /* =========================
      RENDER
      ========================= */
@@ -328,29 +361,35 @@ export default function Home() {
         </div>
       </section>
 
-      {/* SEJARAH (Tidak berubah) */}
+    
+      {/* SEJARAH (DIMODIFIKASI) */}
       <section className="py-16 md:py-20 bg-white">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div className="relative w-full h-80 lg:h-full rounded-2xl overflow-hidden shadow-lg">
+              {/* --- MODIFIKASI: Gunakan gambar dinamis dari settings --- */}
               <Image
-                src="https://cdn.pixabay.com/photo/2024/06/18/21/37/bali-8838762_640.jpg"
-                alt="Tentang Koperasi Merah Putih"
+                src={platformSettings.section2ImageUrl || "https://cdn.pixabay.com/photo/2024/06/18/21/37/bali-8838762_640.jpg"} // Fallback ke gambar statis
+                alt={platformSettings.section2Title || "Tentang Koperasi Merah Putih"}
                 fill
                 className="object-cover"
                 sizes="(max-width: 1024px) 100vw, 50vw"
               />
             </div>
             <div className="space-y-6">
+              {/* --- MODIFIKASI: Gunakan judul dinamis dari settings --- */}
               <h2 className="text-3xl md:text-4xl font-extrabold text-brand-red-600 leading-tight">
-                Membangun Ekonomi Kerakyatan Berbasis Gotong Royong
+                {platformSettings.section2Title || "Membangun Ekonomi Kerakyatan Berbasis Gotong Royong"}
               </h2>
+              {/* --- MODIFIKASI: Gunakan subjudul dinamis dari settings --- */}
               <p className="text-gray-700 leading-relaxed">
-                Koperasi Desa/Kelurahan Merah Putih dibentuk berdasarkan semangat
-                Pasal 33 UUD 1945, sebagai fondasi untuk memperkuat ketahanan
-                ekonomi rakyat.
+                {platformSettings.section2Subtitle || "Koperasi Desa/Kelurahan Merah Putih dibentuk berdasarkan semangat Pasal 33 UUD 1945..."}
               </p>
-              <QuoteFader />
+              {/* --- MODIFIKASI: Masukkan data quotes ke QuoteFader --- */}
+              <QuoteFader 
+                quotesJsonString={quotesJsonStringForFader} 
+                isMainDomain={isMainDomain} 
+              />
             </div>
           </div>
         </div>
