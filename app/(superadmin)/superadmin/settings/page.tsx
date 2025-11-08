@@ -4,45 +4,44 @@
 "use client";
 
 import React, { useState, useEffect, ChangeEvent } from 'react';
-import { toast } from 'react-toastify'; // <-- 1. PERBAIKI IMPOR: Gunakan react-toastify
+import { toast } from 'react-toastify';
 import { superAdminService, UpdatePlatformSettingDto } from '@/services/superadmin.service';
 import AdminPageHeader from '@/components/AdminPageHeader';
-import { Upload, Save } from 'lucide-react'; // <-- Tambahkan ikon Save
+import { Upload, Save, Image as ImageIcon } from 'lucide-react';
 import Image from 'next/image';
 
 // Tipe untuk state pengaturan
 type SettingsState = Record<string, string>;
 
-// Daftar pengaturan yang kita inginkan
-// (Kunci ini harus SAMA PERSIS dengan 'key' di database)
-const settingKeys = [
-  { key: 'namaPlatform', label: 'Nama Platform' },
-  { key: 'heroTitle', label: 'Judul Hero Landing Page' },
-  { key: 'heroSubtitle', label: 'Subjudul Hero Landing Page' },
-  { key: 'promoTitle', label: 'Judul Bagian Promosi' },
-  { key: 'promoSubtitle', label: 'Subjudul Bagian Promosi' },
+// 1. FOKUS HANYA PADA HERO SECTION (sesuai permintaan)
+const heroTextKeys = [
+  { key: 'heroTitle', label: 'Judul Hero', placeholder: 'Misal: Koperasi Digital Modern' },
+  { key: 'heroSubtitle', label: 'Subjudul Hero', placeholder: 'Misal: Bergabunglah bersama ribuan anggota lainnya...' },
 ];
-
-// Key untuk gambar
 const heroImageKey = 'heroImageUrl';
 
 export default function SuperAdminSettingsPage() {
   const [settings, setSettings] = useState<SettingsState>({});
   const [loading, setLoading] = useState(true);
-  const [isSavingText, setIsSavingText] = useState(false);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // File preview untuk gambar
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   // Load data saat halaman dibuka
   useEffect(() => {
     async function loadSettings() {
       try {
         setLoading(true);
-        // Panggil service yang mengambil SEMUA settings
-        const fetchedSettings: Record<string, string> = await superAdminService.getAllPlatformSettings();
-
-        
-
+        // Panggil service yang mengembalikan OBJEK { key: 'value', ... }
+        const fetchedSettings = await superAdminService.getAllPlatformSettings();
         setSettings(fetchedSettings);
+        
+        // Set preview awal jika gambar sudah ada
+        if (fetchedSettings[heroImageKey]) {
+          setImagePreview(fetchedSettings[heroImageKey]);
+        }
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Error tidak diketahui';
         toast.error(`Gagal memuat pengaturan: ${errorMessage}`);
@@ -59,72 +58,82 @@ export default function SuperAdminSettingsPage() {
     setSettings(prev => ({ ...prev, [name]: value }));
   };
 
-  // 2. DESAIN BARU: Fungsi untuk menyimpan SEMUA pengaturan teks sekaligus
-  const handleSaveAllTextSettings = async () => {
-    setIsSavingText(true);
-    const toastId = toast.loading('Menyimpan pengaturan teks...'); // <-- 3. FEEDBACK JELAS
+  // Handler untuk memilih file (hanya preview)
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
 
-    try {
-      // Buat payload array sesuai DTO backend
-      const updates: UpdatePlatformSettingDto[] = settingKeys.map(({ key }) => ({
-        key: key,
-        value: settings[key] || '' // Kirim string kosong jika tidak diisi
-      }));
-
-      // Panggil service 'updateSettings' (PATCH /admin/platform-settings)
-      await superAdminService.updateSettings(updates);
-
-      // Gunakan toast.update untuk notifikasi 'react-toastify'
-      toast.update(toastId, {
-        render: 'Pengaturan berhasil disimpan!',
-        type: 'success',
-        isLoading: false,
-        autoClose: 5000
-      });
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Error';
-      toast.update(toastId, {
-        render: `Gagal menyimpan: ${errorMessage}`,
-        type: 'error',
-        isLoading: false,
-        autoClose: 5000
-      });
-    } finally {
-      setIsSavingText(false);
+      // Validasi frontend (sesuai backend)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        toast.error('Ukuran file terlalu besar! Maksimal 5 MB.');
+        e.target.value = ''; // Reset input
+        return;
+      }
+      
+      setImageFile(file); // Simpan file untuk di-upload
+      setImagePreview(URL.createObjectURL(file)); // Buat preview URL
     }
   };
 
-  // Handler untuk upload gambar (sudah menggunakan toastify)
-  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setIsUploadingImage(true);
-      const toastId = toast.loading('Mengunggah gambar hero...'); // <-- 3. FEEDBACK JELAS
+  // Handler untuk "Simpan Perubahan" (teks dan gambar sekaligus)
+  const handleSaveAll = async () => {
+    setIsSaving(true);
+    const toastId = toast.loading('Menyimpan perubahan...');
 
-      try {
-        // Panggil service upload (POST /admin/platform-settings/upload-image)
-        const updatedSetting = await superAdminService.uploadPlatformSettingImage(heroImageKey, file);
-
-        // Update state lokal dengan URL gambar baru dari server
+    try {
+      // 1. Upload gambar JIKA ada file baru
+      if (imageFile) {
+        toast.update(toastId, { render: 'Mengunggah gambar...' });
+        
+        const updatedSetting = await superAdminService.uploadPlatformSettingImage(
+          heroImageKey, 
+          imageFile
+        );
+        
+        // Update state settings agar preview konsisten
+        // 'updatedSetting.value' berisi URL baru dari server
         setSettings(prev => ({ ...prev, [heroImageKey]: updatedSetting.value }));
-
-        toast.update(toastId, {
-          render: 'Gambar hero berhasil diperbarui!',
-          type: 'success',
-          isLoading: false,
-          autoClose: 5000
-        });
-      } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'Error';
-        toast.update(toastId, {
-          render: `Gagal mengunggah: ${errorMessage}`,
-          type: 'error',
-          isLoading: false,
-          autoClose: 5000
-        });
-      } finally {
-        setIsUploadingImage(false);
+        setImageFile(null); // Hapus file dari antrian
       }
+
+      // 2. Siapkan payload DTO untuk teks
+      toast.update(toastId, { render: 'Menyimpan data teks...' });
+      const textUpdates: UpdatePlatformSettingDto[] = heroTextKeys.map(({ key }) => ({
+        key: key,
+        value: settings[key] || ''
+      }));
+
+      // 3. Kirim pembaruan teks (backend Anda menerima array)
+      await superAdminService.updateSettings(textUpdates);
+
+      toast.update(toastId, { 
+        render: 'Semua perubahan berhasil disimpan!', 
+        type: 'success', 
+        isLoading: false, 
+        autoClose: 5000 
+      });
+
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Error';
+      // Cek jika ini error DTO dari upload
+      if (errorMessage.includes('400')) {
+        toast.update(toastId, { 
+          render: `Gagal menyimpan: Error 400. Pastikan service 'key' sudah benar.`, 
+          type: 'error', 
+          isLoading: false, 
+          autoClose: 5000 
+        });
+      } else {
+         toast.update(toastId, { 
+          render: `Gagal menyimpan: ${errorMessage}`, 
+          type: 'error', 
+          isLoading: false, 
+          autoClose: 5000 
+        });
+      }
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -132,8 +141,8 @@ export default function SuperAdminSettingsPage() {
     return (
       <div className="container mx-auto p-4 md:p-6">
         <AdminPageHeader
-          title="Pengaturan Platform"
-          description="Atur tampilan dan data global untuk landing page utama."
+          title="Pengaturan Hero Section"
+          description="Atur konten dinamis untuk halaman utama (portal) Anda."
         />
         <p>Memuat pengaturan...</p>
       </div>
@@ -144,98 +153,117 @@ export default function SuperAdminSettingsPage() {
   return (
     <div className="container mx-auto p-4 md:p-6">
       <AdminPageHeader
-        title="Pengaturan Platform"
-        description="Atur tampilan dan data global untuk landing page utama."
+        title="Pengaturan Hero Section"
+        description="Atur konten dinamis untuk halaman utama (portal) Anda."
       />
 
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
-
-        {/* Kolom Pengaturan Teks */}
-        <div className="bg-white p-6 rounded-lg shadow space-y-6 flex flex-col">
-          <h3 className="text-lg font-semibold text-gray-900">Konten Landing Page</h3>
-
-          <div className="flex-1 space-y-4">
-            {settingKeys.map(({ key, label }) => (
-              <div key={key}>
-                <label htmlFor={key} className="block text-sm font-medium text-gray-700">
-                  {label}
-                </label>
-                <div className="mt-1">
-                  {/* Input full-width yang lebih bersih */}
-                  <input
-                    type="text"
-                    name={key}
-                    id={key}
-                    className="flex-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-red-500 focus:ring-brand-red-500 sm:text-sm"
-                    value={settings[key] || ''} // <-- Data sekarang akan muncul di sini
-                    onChange={handleTextChange}
-                  />
+      {/* --- KITA FOKUSKAN SEMUA DALAM SATU FORM --- */}
+      <div className="mt-8 max-w-3xl mx-auto">
+        <div className="bg-white p-6 sm:p-8 rounded-lg shadow space-y-8">
+          
+          {/* --- BAGIAN KONTEN TEKS --- */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Konten Teks Hero</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Ini akan mengubah judul dan subjudul di halaman depan utama.
+            </p>
+            <div className="mt-6 space-y-4">
+              {heroTextKeys.map(({ key, label, placeholder }) => (
+                <div key={key}>
+                  <label htmlFor={key} className="block text-sm font-medium text-gray-700">
+                    {label}
+                  </label>
+                  <div className="mt-1">
+                    <input
+                      type="text"
+                      name={key}
+                      id={key}
+                      className="flex-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-red-500 focus:ring-brand-red-500 sm:text-sm"
+                      value={settings[key] || ''}
+                      placeholder={placeholder}
+                      onChange={handleTextChange}
+                    />
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
-          {/* Tombol simpan tunggal di bagian bawah card */}
-          <div className="mt-6 border-t pt-4">
-            <button
-              type="button"
-              onClick={handleSaveAllTextSettings}
-              disabled={isSavingText}
-              className="inline-flex w-full justify-center items-center gap-2 rounded-md border border-transparent bg-brand-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand-red-700 focus:outline-none focus:ring-2 focus:ring-brand-red-500 focus:ring-offset-2 disabled:bg-gray-300"
-            >
-              <Save size={16} />
-              {isSavingText ? 'Menyimpan...' : 'Simpan Perubahan Teks'}
-            </button>
-          </div>
-        </div>
+          <hr className="border-gray-200" />
 
-        {/* Kolom Pengaturan Gambar */}
-        <div className="bg-white p-6 rounded-lg shadow space-y-4">
-          <h3 className="text-lg font-semibold text-gray-900">Gambar Hero</h3>
-
-          <div className="w-full">
-            <p className="block text-sm font-medium text-gray-700 mb-2">Pratinjau Gambar Hero</p>
-            {/* Menggunakan <Image> dari next/image */}
-            <div className="w-full aspect-video rounded-md bg-gray-100 overflow-hidden flex items-center justify-center relative">
-              {settings[heroImageKey] ? (
-                <Image
-                  src={settings[heroImageKey]}
-                  alt="Hero preview"
+          {/* --- BAGIAN GAMBAR --- */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Gambar Hero</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Ganti gambar latar belakang. (Maks 5MB, .jpg, .png, .webp, .svg)
+            </p>
+            
+            {/* Pratinjau Gambar */}
+            <div className="mt-4 w-full aspect-video rounded-md bg-gray-100 overflow-hidden flex items-center justify-center relative border">
+              {imagePreview ? (
+                <Image 
+                  src={imagePreview} 
+                  alt="Hero preview" 
                   className="w-full h-full object-cover"
                   fill={true}
                   priority
                 />
               ) : (
-                <span className="text-gray-400">Belum ada gambar</span>
+                <div className="text-center text-gray-400">
+                  <ImageIcon size={48} />
+                  <p>Belum ada gambar</p>
+                </div>
+              )}
+            </div>
+
+            {/* Tombol Upload */}
+            <div className="mt-4">
+              <label 
+                htmlFor="hero-image-upload" 
+                className={`cursor-pointer inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-red-500 focus:ring-offset-2 ${isSaving ? 'opacity-50' : ''}`}
+              >
+                <Upload size={16} />
+                {imageFile ? `File: ${imageFile.name}` : 'Pilih File Baru...'}
+                <input 
+                  id="hero-image-upload" 
+                  name="hero-image-upload" 
+                  type="file" 
+                  className="sr-only"
+                  accept="image/png, image/jpeg, image/webp, image/svg+xml"
+                  onChange={handleFileChange}
+                  disabled={isSaving}
+                />
+              </label>
+              {imageFile && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setImageFile(null);
+                    setImagePreview(settings[heroImageKey] || null); // Kembali ke gambar tersimpan
+                  }}
+                  className="ml-3 text-sm text-gray-500 hover:text-red-600"
+                  disabled={isSaving}
+                >
+                  Batal
+                </button>
               )}
             </div>
           </div>
 
-          <div>
-            <label htmlFor="hero-image-upload" className="block text-sm font-medium text-gray-700">
-              Ganti Gambar Hero (.jpg, .png, .webp)
-            </label>
-            <div className="mt-1 flex items-center">
-              <label
-                htmlFor="hero-image-upload"
-                className={`cursor-pointer inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-red-500 focus:ring-offset-2 ${isUploadingImage ? 'opacity-50' : ''}`}
-              >
-                <Upload size={16} />
-                {isUploadingImage ? 'Mengunggah...' : 'Pilih File'}
-                <input
-                  id="hero-image-upload"
-                  name="hero-image-upload"
-                  type="file"
-                  className="sr-only"
-                  accept="image/png, image/jpeg, image/webp"
-                  onChange={handleFileChange}
-                  disabled={isUploadingImage}
-                />
-              </label>
-            </div>
+          {/* --- TOMBOL SIMPAN UTAMA --- */}
+          <div className="mt-8 border-t pt-6">
+            <button
+              type="button"
+              onClick={handleSaveAll}
+              disabled={isSaving}
+              className="inline-flex w-full justify-center items-center gap-2 rounded-md border border-transparent bg-brand-red-600 px-6 py-3 text-base font-medium text-white shadow-sm hover:bg-brand-red-700 focus:outline-none focus:ring-2 focus:ring-brand-red-500 focus:ring-offset-2 disabled:bg-gray-300 disabled:cursor-not-allowed"
+            >
+              <Save size={20} />
+              {isSaving ? 'Menyimpan...' : 'Simpan Perubahan Hero'}
+            </button>
           </div>
-        </div>
 
+        </div>
       </div>
     </div>
   );

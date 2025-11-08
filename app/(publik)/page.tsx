@@ -26,7 +26,7 @@ import type {
   Product as PublicProduct 
 } from "@/services/public.service"; 
 // --- (Akhir Impor Baru) ---
-
+import { superAdminService } from "@/services/superadmin.service";
 const MAIN_DOMAINS = [
   'localhost', 
   'sistemkoperasi.id' // Ganti jika domain produksi Anda berbeda
@@ -74,6 +74,7 @@ export default function Home() {
   const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
   const [dataLoading, setDataLoading] = useState(true); 
   const [isMainDomain, setIsMainDomain] = useState(false);
+  const [platformSettings, setPlatformSettings] = useState<Record<string, string>>({});
   // Search interaktif
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<KoperasiSearchResult[]>([]);
@@ -85,10 +86,6 @@ export default function Home() {
 
   // --- [DIMODIFIKASI] Ambil data awal (termasuk Galeri) ---
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const hostname = window.location.hostname;
-      setIsMainDomain(MAIN_DOMAINS.includes(hostname));
-    }
     const loadData = async () => {
       setDataLoading(true); 
       try {
@@ -138,7 +135,31 @@ export default function Home() {
       }
     };
     
-    loadData();
+    if (typeof window !== "undefined") {
+      const hostname = window.location.hostname;
+      const mainDomain = MAIN_DOMAINS.includes(hostname);
+      setIsMainDomain(mainDomain);
+
+      if (mainDomain) {
+        // --- KITA DI DOMAIN UTAMA ---
+        // Panggil service yang mengembalikan OBJEK { key: 'value', ... }
+        superAdminService.getPublicPlatformSettings()
+          .then(settings => {
+            setPlatformSettings(settings);
+          })
+          .catch(err => {
+            console.error("Gagal fetch platform settings:", err);
+          })
+          .finally(() => {
+            // Sembunyikan skeleton (karena 'loadData' tidak dipanggil)
+            setDataLoading(false); 
+          });
+      } else {
+        // --- KITA DI SUBDOMAIN ---
+        // Panggil data tenant (Berita, Produk, Galeri)
+        loadData();
+      }
+    }
 
     // Cleanup debounce
     return () => {
@@ -218,7 +239,7 @@ export default function Home() {
       {/* HERO SECTION (Tidak berubah) */}
       <section className="relative h-screen flex items-center justify-center text-center text-white">
         <Image
-          src="https://cdn.pixabay.com/photo/2023/05/04/02/24/bali-7969001_1280.jpg"
+          src={platformSettings.heroImageUrl || "https://cdn.pixabay.com/photo/2023/05/04/02/24/bali-7969001_1280.jpg"}
           alt="Koperasi"
           fill
           priority
@@ -227,11 +248,10 @@ export default function Home() {
         <div className="absolute inset-0 bg-black/50" />
         <div className="relative z-10 container px-4 flex flex-col items-center">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-white drop-shadow-lg">
-            Koperasi Merah Putih
+            {platformSettings.heroTitle || "Koperasi Merah Putih"}
           </h1>
           <p className="mt-4 text-lg md:text-xl text-white/95 max-w-2xl mx-auto drop-shadow-md">
-            Bersama membangun kesejahteraan anggota melalui simpanan, pinjaman,
-            dan layanan koperasi modern.
+            {platformSettings.heroSubtitle || "Bersama membangun kesejahteraan anggota melalui simpanan, pinjaman, dan layanan koperasi modern."}
           </p>
 
           {/* SEARCH BAR (Tidak berubah) */}
