@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent, ChangeEvent } from "react";
+import { useState, FormEvent, ChangeEvent, useRef } from "react"; // <-- 1. Impor useRef
 import Link from "next/link";
 import { FiEye, FiEyeOff } from "react-icons/fi";
 import Button from "@/components/Button";
@@ -11,11 +11,18 @@ import {
   CreateMemberRegistrationDto
 } from "@/types/api.types"; // <-- Impor tipe DTO dari sini
 import { Gender } from "@/types/enums";
+import SignatureCanvas from 'react-signature-canvas'; // <-- 2. Impor SignatureCanvas
 
 export default function DaftarAnggotaPage() {
-  const [formData, setFormData] = useState<CreateMemberRegistrationDto & { 
-    ulangiKataSandi: string; 
-    terms: boolean 
+  
+  // --- 3. Tambahkan Ref dan State untuk Tanda Tangan ---
+  const sigPadRef = useRef<SignatureCanvas>(null);
+  const [isSigned, setIsSigned] = useState(false);
+  // --- Akhir Penambahan ---
+
+  const [formData, setFormData] = useState<CreateMemberRegistrationDto & {
+    ulangiKataSandi: string;
+    terms: boolean
   }>({
     nik: "",
     fullName: "",
@@ -30,6 +37,7 @@ export default function DaftarAnggotaPage() {
     address: "",
     targetSubdomain: undefined, // Kosongkan jika daftar via subdomain
     terms: false,
+    signatureData: "", // <-- 4. Tambahkan signatureData di state
   });
 
   const [showPassword, setShowPassword] = useState(false);
@@ -50,10 +58,24 @@ export default function DaftarAnggotaPage() {
     }));
   };
 
-  const handleSubmit = async (event: FormEvent) => {
+  // --- 5. Tambahkan Fungsi Helper Tanda Tangan ---
+  // Fungsi untuk membersihkan tanda tangan
+  const handleClearSignature = () => {
+    sigPadRef.current?.clear();
+    setIsSigned(false);
+  };
+
+  // Fungsi untuk menandai bahwa user sudah menggambar
+  const handleSignatureEnd = () => {
+    setIsSigned(true);
+  };
+  // --- Akhir Penambahan ---
+
+const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
 
+    // --- Validasi yang ada ---
     if (formData.password !== formData.ulangiKataSandi) {
       const msg = "Kata sandi dan konfirmasi kata sandi tidak cocok!";
       setError(msg);
@@ -67,11 +89,42 @@ export default function DaftarAnggotaPage() {
       return;
     }
 
+    // --- Validasi Tanda Tangan ---
+    if (!isSigned || sigPadRef.current?.isEmpty()) {
+      const msg = "Tanda tangan digital wajib diisi.";
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
+    
+    // --- PERBAIKAN 2: Cek 'null' untuk TypeScript ---
+    // Kita tambahkan cek ini untuk meyakinkan TypeScript.
+    if (!sigPadRef.current) {
+      const msg = "Gagal memuat canvas tanda tangan. Coba lagi.";
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
+    // --- Akhir Perbaikan 2 ---
+
     setLoading(true);
     const toastId = toast.loading('Mengirim permohonan pendaftaran...');
-    
-    
+
+
     try {
+      // --- PERBAIKAN 1: Ekstrak Base64 murni ---
+      // 1. Ambil data URL lengkap
+      const dataUrl = sigPadRef.current.toDataURL('image/png');
+      
+      // 2. Pisahkan metadata dan data Base64
+      //    Hasilnya akan seperti ["data:image/png;base64", "iVBORw0KG..."]
+      const dataParts = dataUrl.split(',');
+      
+      // 3. Ambil HANYA data Base64 murni (bagian kedua)
+      const signatureData = dataParts[1];
+      // --- Akhir Perbaikan 1 ---
+
+
       const {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         ulangiKataSandi,
@@ -79,22 +132,21 @@ export default function DaftarAnggotaPage() {
         terms,
         ...payload
       } = formData;
+      
+      // --- Buat Payload Final ---
+      const finalPayload: CreateMemberRegistrationDto = {
+        ...payload,
+        signatureData: signatureData, // Kirim data Base64 murni
+      };
+      // --- Akhir Penambahan ---
 
-      // Cek subdomain saat ini (jika pendaftaran via subdomain)
-      // Jika tidak, Anda perlu input 'targetSubdomain' dari form
-      // if (typeof window !== 'undefined' && !payload.targetSubdomain) {
-      //   const subdomain = window.location.hostname.split('.')[0];
-      //   if (subdomain !== 'www' && subdomain !== 'localhost') {
-      //     payload.targetSubdomain = subdomain;
-      //   }
-      // }
-
-      const result = await publicService.registerMember(payload);
+      // Kirim payload final
+      const result = await publicService.registerMember(finalPayload);
 
       toast.success(result.message, { id: toastId, duration: 5000 });
       // TODO: Redirect ke halaman sukses
       // router.push('/auth/registrasi-anggota-sukses');
-      
+
     } catch (err) {
       const apiError = err as ApiErrorResponse;
       console.error('Member registration failed:', apiError);
@@ -109,16 +161,16 @@ export default function DaftarAnggotaPage() {
   };
 
   return (
-     <>
+    <>
       <Toaster position="top-right" />
       <section className="bg-gray-50 py-12 md:py-16">
         <div className="container mx-auto px-4 max-w-4xl">
           <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-200">
-             <h1 className="text-2xl font-bold text-center text-brand-red-700">
-                Pendaftaran Anggota Koperasi
+            <h1 className="text-2xl font-bold text-center text-brand-red-700">
+              Pendaftaran Anggota Koperasi
             </h1>
             <p className="mt-2 text-center text-gray-600">
-                Lengkapi data di bawah ini untuk menjadi bagian dari kami.
+              Lengkapi data di bawah ini untuk menjadi bagian dari kami.
             </p>
 
             <form onSubmit={handleSubmit} className="mt-8 space-y-8">
@@ -126,21 +178,22 @@ export default function DaftarAnggotaPage() {
               <fieldset className="border p-4 rounded-lg">
                 <legend className="text-lg font-semibold px-2 text-gray-800">Informasi Pribadi</legend>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 mt-4">
+                  {/* ... (Semua input NIK, Nama, Email, Password, dll. tetap sama) ... */}
                   <div>
                     <label htmlFor="nik" className="block text-sm font-medium text-gray-700">Nomor Induk Kependudukan*</label>
-                    <input type="text" name="nik" id="nik" required pattern="\d{16}" title="NIK harus 16 digit angka" value={formData.nik} onChange={handleChange} className="mt-1 w-full p-2 border border-gray-300 rounded-md shadow-sm" disabled={loading}/>
+                    <input type="text" name="nik" id="nik" required pattern="\d{16}" title="NIK harus 16 digit angka" value={formData.nik} onChange={handleChange} className="mt-1 w-full p-2 border border-gray-300 rounded-md shadow-sm" disabled={loading} />
                   </div>
                   <div>
                     <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">Nama Lengkap*</label>
-                    <input type="text" name="fullName" id="fullName" required value={formData.fullName} onChange={handleChange} className="mt-1 w-full p-2 border border-gray-300 rounded-md shadow-sm" disabled={loading}/>
+                    <input type="text" name="fullName" id="fullName" required value={formData.fullName} onChange={handleChange} className="mt-1 w-full p-2 border border-gray-300 rounded-md shadow-sm" disabled={loading} />
                   </div>
                   <div>
                     <label htmlFor="placeOfBirth" className="block text-sm font-medium text-gray-700">Tempat Lahir*</label>
-                    <input type="text" name="placeOfBirth" id="placeOfBirth" required value={formData.placeOfBirth} onChange={handleChange} className="mt-1 w-full p-2 border border-gray-300 rounded-md shadow-sm" disabled={loading}/>
+                    <input type="text" name="placeOfBirth" id="placeOfBirth" required value={formData.placeOfBirth} onChange={handleChange} className="mt-1 w-full p-2 border border-gray-300 rounded-md shadow-sm" disabled={loading} />
                   </div>
                   <div>
                     <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700">Tanggal Lahir*</label>
-                    <input type="date" name="dateOfBirth" id="dateOfBirth" required value={formData.dateOfBirth} onChange={handleChange} className="mt-1 w-full p-2 border border-gray-300 rounded-md shadow-sm" disabled={loading}/>
+                    <input type="date" name="dateOfBirth" id="dateOfBirth" required value={formData.dateOfBirth} onChange={handleChange} className="mt-1 w-full p-2 border border-gray-300 rounded-md shadow-sm" disabled={loading} />
                   </div>
                   <div>
                     <label htmlFor="gender" className="block text-sm font-medium text-gray-700">Jenis Kelamin*</label>
@@ -151,28 +204,28 @@ export default function DaftarAnggotaPage() {
                   </div>
                   <div>
                     <label htmlFor="occupation" className="block text-sm font-medium text-gray-700">Pekerjaan*</label>
-                    <input type="text" name="occupation" id="occupation" required value={formData.occupation} onChange={handleChange} className="mt-1 w-full p-2 border border-gray-300 rounded-md shadow-sm" disabled={loading}/>
+                    <input type="text" name="occupation" id="occupation" required value={formData.occupation} onChange={handleChange} className="mt-1 w-full p-2 border border-gray-300 rounded-md shadow-sm" disabled={loading} />
                   </div>
                   <div>
                     <label htmlFor="email" className="block text-sm font-medium text-gray-700">Alamat Email*</label>
-                    <input type="email" name="email" id="email" required value={formData.email} onChange={handleChange} className="mt-1 w-full p-2 border border-gray-300 rounded-md shadow-sm" disabled={loading}/>
+                    <input type="email" name="email" id="email" required value={formData.email} onChange={handleChange} className="mt-1 w-full p-2 border border-gray-300 rounded-md shadow-sm" disabled={loading} />
                   </div>
                   <div>
                     <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700">Nomor HP*</label>
-                    <input type="tel" name="phoneNumber" id="phoneNumber" required value={formData.phoneNumber} onChange={handleChange} className="mt-1 w-full p-2 border border-gray-300 rounded-md shadow-sm" disabled={loading}/>
+                    <input type="tel" name="phoneNumber" id="phoneNumber" required value={formData.phoneNumber} onChange={handleChange} className="mt-1 w-full p-2 border border-gray-300 rounded-md shadow-sm" disabled={loading} />
                   </div>
                   <div className="md:col-span-2">
-                      <label htmlFor="address" className="block text-sm font-medium text-gray-700">Alamat Lengkap (Sesuai KTP)*</label>
-                      <textarea name="address" id="address" rows={3} required value={formData.address} onChange={handleChange} className="mt-1 w-full p-2 border border-gray-300 rounded-md shadow-sm" disabled={loading}/>
+                    <label htmlFor="address" className="block text-sm font-medium text-gray-700">Alamat Lengkap (Sesuai KTP)*</label>
+                    <textarea name="address" id="address" rows={3} required value={formData.address} onChange={handleChange} className="mt-1 w-full p-2 border border-gray-300 rounded-md shadow-sm" disabled={loading} />
                   </div>
-                  
+
                   {/* --- Info Akun --- */}
                   <div className="relative md:col-span-2 border-t pt-4 mt-4">
-                     <h3 className="text-md font-semibold text-gray-700">Informasi Akun</h3>
+                    <h3 className="text-md font-semibold text-gray-700">Informasi Akun</h3>
                   </div>
                   <div className="relative">
                     <label htmlFor="password" className="block text-sm font-medium text-gray-700">Buat Kata Sandi*</label>
-                    <input type={showPassword ? "text" : "password"} name="password" id="password" required minLength={8} value={formData.password} onChange={handleChange} className="mt-1 w-full p-2 border border-gray-300 rounded-md shadow-sm" disabled={loading}/>
+                    <input type={showPassword ? "text" : "password"} name="password" id="password" required minLength={8} value={formData.password} onChange={handleChange} className="mt-1 w-full p-2 border border-gray-300 rounded-md shadow-sm" disabled={loading} />
                     <button type="button" className="absolute inset-y-0 right-0 top-6 pr-3 flex items-center text-gray-500" onClick={() => setShowPassword(!showPassword)} disabled={loading}>
                       {showPassword ? <FiEyeOff /> : <FiEye />}
                     </button>
@@ -180,13 +233,45 @@ export default function DaftarAnggotaPage() {
                   </div>
                   <div className="relative">
                     <label htmlFor="ulangiKataSandi" className="block text-sm font-medium text-gray-700">Ulangi Kata Sandi*</label>
-                    <input type={showUlangiPassword ? "text" : "password"} name="ulangiKataSandi" id="ulangiKataSandi" required value={formData.ulangiKataSandi} onChange={handleChange} className="mt-1 w-full p-2 border border-gray-300 rounded-md shadow-sm" disabled={loading}/>
+                    <input type={showUlangiPassword ? "text" : "password"} name="ulangiKataSandi" id="ulangiKataSandi" required value={formData.ulangiKataSandi} onChange={handleChange} className="mt-1 w-full p-2 border border-gray-300 rounded-md shadow-sm" disabled={loading} />
                     <button type="button" className="absolute inset-y-0 right-0 top-6 pr-3 flex items-center text-gray-500" onClick={() => setShowUlangiPassword(!showUlangiPassword)} disabled={loading}>
                       {showUlangiPassword ? <FiEyeOff /> : <FiEye />}
                     </button>
                   </div>
                 </div>
               </fieldset>
+
+              {/* --- 9. Tambahkan JSX untuk Signature Pad --- */}
+              <fieldset className="border p-4 rounded-lg">
+                <legend className="text-lg font-semibold px-2 text-gray-800">Tanda Tangan Digital*</legend>
+                <div className="mt-4 rounded-md border border-gray-300 bg-gray-50 overflow-hidden">
+                  <SignatureCanvas
+                    ref={sigPadRef}
+                    penColor='black'
+                    canvasProps={{
+                      width: 500,
+                      height: 200,
+                      className: 'sigCanvas w-full h-auto',
+                    }}
+                    onEnd={handleSignatureEnd} // <-- INI KUNCINYA
+                    backgroundColor="rgba(249, 250, 251, 1)"
+                  />
+                </div>
+                <div className="flex justify-end mt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleClearSignature}
+                    disabled={loading}
+                  >
+                    Bersihkan
+                  </Button>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Tanda tangan di area di atas. Ini akan digunakan sebagai bukti legal pendaftaran Anda.
+                </p>
+              </fieldset>
+              {/* --- Akhir Penambahan --- */}
 
               {/* Tampilkan Pesan Error */}
               {error && (
@@ -197,24 +282,25 @@ export default function DaftarAnggotaPage() {
 
               {/* Checkbox Pernyataan */}
               <div className="flex items-start">
-                  <input id="terms" name="terms" type="checkbox" checked={formData.terms} onChange={handleChange} className="h-4 w-4 text-brand-red-600 border-gray-300 rounded mt-1" disabled={loading}/>
-                  <label htmlFor="terms" className="ml-3 block text-sm text-gray-700">
-                      Dengan ini saya menyatakan bersedia menjadi anggota Koperasi...
-                  </label>
+                <input id="terms" name="terms" type="checkbox" checked={formData.terms} onChange={handleChange} className="h-4 w-4 text-brand-red-600 border-gray-300 rounded mt-1" disabled={loading} />
+                <label htmlFor="terms" className="ml-3 block text-sm text-gray-700">
+                  Dengan ini saya menyatakan bersedia menjadi anggota Koperasi...
+                </label>
               </div>
 
               {/* Tombol Submit */}
               <div className="flex justify-end pt-4">
-                <Button type="submit" disabled={loading || !formData.terms}>
+                 {/* 10. Perbarui Logika Disabled Tombol */}
+                <Button type="submit" disabled={loading || !formData.terms || !isSigned}>
                   {loading ? 'Mengirim...' : 'Kirim Pendaftaran'}
                 </Button>
               </div>
-               <p className="mt-6 text-sm text-center text-gray-600">
-                    Sudah punya akun anggota?{' '}
-                    <Link href="/auth/login" className="font-medium text-brand-red-600 hover:text-red-500">
-                        Masuk di sini
-                    </Link>
-                </p>
+              <p className="mt-6 text-sm text-center text-gray-600">
+                Sudah punya akun anggota?{' '}
+                <Link href="/auth/login" className="font-medium text-brand-red-600 hover:text-red-500">
+                  Masuk di sini
+                </Link>
+              </p>
             </form>
           </div>
         </div>

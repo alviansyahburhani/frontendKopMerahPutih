@@ -62,7 +62,7 @@ export default function AdminDashboardLayout({
                 try {
                     const positions: BoardMember[] = await adminService.getMyActiveBoardPositions();
                     jabatans = positions.map(p => p.jabatan);
-                    // Set cookie hint (opsional, tergantung middleware)
+                    // Set cookie hint (opsional, tergantung leware)
                     const isCurrentlyBendahara = jabatans.includes('Bendahara');
                     document.cookie = `isBendahara=${isCurrentlyBendahara ? '1' : '0'}; Path=/; SameSite=Lax; Max-Age=1800`;
                 } catch (e) {

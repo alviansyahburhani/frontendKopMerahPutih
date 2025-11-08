@@ -3,6 +3,7 @@
 import { useState, useMemo, FormEvent, useEffect, useCallback, ChangeEvent } from "react";
 import AdminPageHeader from "@/components/AdminPageHeader";
 import Button from "@/components/Button";
+// --- UserPlus Dihapus dari sini ---
 import { PlusCircle, Search, Eye, XCircle, Edit, Trash2 } from "lucide-react";
 import clsx from "clsx";
 import toast, { Toaster } from 'react-hot-toast';
@@ -19,7 +20,7 @@ import { Gender } from "@/types/enums";
 
 
 // ===================================================================
-// 1. KOMPONEN MODAL TAMBAH ANGGOTA (DIPERBAIKI)
+// 1. KOMPONEN MODAL TAMBAH ANGGOTA (DIKEMBALIKAN SEPERTI SEMULA)
 // ===================================================================
 const TambahAnggotaModal = ({ isOpen, onClose, onAnggotaAdded }: { isOpen: boolean; onClose: () => void; onAnggotaAdded: () => void; }) => {
     const [loading, setLoading] = useState(false);
@@ -50,8 +51,10 @@ const TambahAnggotaModal = ({ isOpen, onClose, onAnggotaAdded }: { isOpen: boole
         status: 'ACTIVE'
       };
 
+      // --- LOGIKA DIKEMBALIKAN ---
       const email = formData.get("email") as string;
       const password = formData.get("password") as string;
+      // --- AKHIR PENGEMBALIAN ---
 
       try {
         setLoading(true);
@@ -60,21 +63,23 @@ const TambahAnggotaModal = ({ isOpen, onClose, onAnggotaAdded }: { isOpen: boole
         // PANGGILAN 1: Buat Anggota
         const newMember = await adminService.createMember(newAnggotaDto);
         
+        // --- LOGIKA DIKEMBALIKAN ---
         // PANGGILAN 2: Buat User (jika diisi)
         if (email && password) {
-            toast.loading('Anggota dibuat. Membuat akun login...');
+            toast.loading('Anggota dibuat. Membuat akun login...', { id: 'apiToast' });
             
             const newUserDto: CreateUserDto = {
                 email: email,
                 password: password,
-                memberId: newMember.id, 
+                memberId: newMember.id, // <-- Gunakan ID dari anggota baru
                 role: 'ANGGOTA' 
             };
             
             await adminService.createUser(newUserDto); // Membutuhkan createUser di adminService
         }
+        // --- AKHIR PENGEMBALIAN ---
 
-        toast.dismiss();
+        toast.dismiss('apiToast');
         toast.success(`Anggota "${newMember.fullName}" berhasil ditambahkan!`);
         setLoading(false);
         onAnggotaAdded();
@@ -83,7 +88,7 @@ const TambahAnggotaModal = ({ isOpen, onClose, onAnggotaAdded }: { isOpen: boole
 
       } catch (err) {
         setLoading(false);
-        toast.dismiss();
+        toast.dismiss('apiToast');
         const apiError = err as ApiErrorResponse;
         const message = Array.isArray(apiError.message) ? apiError.message.join(', ') : apiError.message;
         toast.error(`Gagal menambahkan anggota: ${message}`);
@@ -115,6 +120,8 @@ const TambahAnggotaModal = ({ isOpen, onClose, onAnggotaAdded }: { isOpen: boole
             </div>
             <div><label htmlFor="alamat" className="block text-sm font-medium text-gray-700">Alamat Lengkap*</label><textarea name="alamat" id="alamat" rows={3} required className="mt-1 w-full p-2 border rounded-md" disabled={loading}/></div>
             <div><label htmlFor="noTelepon" className="block text-sm font-medium text-gray-700">No. Telepon*</label><input type="tel" name="noTelepon" id="noTelepon" required className="mt-1 w-full p-2 border rounded-md" disabled={loading}/></div>
+            
+            {/* --- FORM AKUN DIKEMBALIKAN --- */}
             <div className="border-t pt-4">
               <h3 className="text-base font-semibold text-gray-700 mb-2">Informasi Akun (Opsional)</h3>
               <p className="text-xs text-gray-500 mb-4">Isi email dan password jika anggota ini akan diberikan akses login ke sistem.</p>
@@ -123,6 +130,8 @@ const TambahAnggotaModal = ({ isOpen, onClose, onAnggotaAdded }: { isOpen: boole
                   <div><label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label><input type="password" name="password" id="password" minLength={8} className="mt-1 w-full p-2 border rounded-md" disabled={loading}/></div>
               </div>
             </div>
+            {/* --- AKHIR PENGEMBALIAN --- */}
+
             <div className="p-5 border-t bg-gray-50 flex justify-end gap-3 rounded-b-xl mt-6 -mx-6 -mb-6">
               <Button type="button" variant="outline" onClick={onClose} disabled={loading}>Batal</Button>
               <Button type="submit" disabled={loading}>{loading ? 'Menyimpan...' : 'Simpan Anggota'}</Button>
@@ -134,14 +143,12 @@ const TambahAnggotaModal = ({ isOpen, onClose, onAnggotaAdded }: { isOpen: boole
   };
 
 // ===================================================================
-// 2. KOMPONEN MODAL EDIT ANGGOTA (DIPERBAIKI)
+// 2. KOMPONEN MODAL EDIT ANGGOTA (Tidak ada perubahan)
 // ===================================================================
 const EditAnggotaModal = ({ isOpen, anggota, onClose, onAnggotaUpdated }: { isOpen: boolean; anggota: MemberWithRole | null; onClose: () => void; onAnggotaUpdated: () => void; }) => {
     const [formData, setFormData] = useState<MemberWithRole | null>(null);
     const [loading, setLoading] = useState(false);
 
-    // useEffect ini HANYA mengisi form input. 
-    // Data di state (formData.dateOfBirth) adalah string YYYY-MM-DD
     useEffect(() => {
       if (anggota) {
         setFormData({ ...anggota, 
@@ -163,15 +170,12 @@ const EditAnggotaModal = ({ isOpen, anggota, onClose, onAnggotaUpdated }: { isOp
       event.preventDefault();
       if (!formData) return;
       setLoading(true);
-
-      // --- PERBAIKAN: Konversi string YYYY-MM-DD ke ISO DateTime saat submit ---
+      
       const updateDto: UpdateMemberDto = {
         fullName: formData.fullName, nik: formData.nik, gender: formData.gender, placeOfBirth: formData.placeOfBirth, 
-        // Ubah string tanggal YYYY-MM-DD dari form menjadi ISO
         dateOfBirth: new Date(formData.dateOfBirth).toISOString(), 
         occupation: formData.occupation, address: formData.address, phoneNumber: formData.phoneNumber,
         status: formData.status as 'ACTIVE' | 'INACTIVE' | 'PENDING',
-        // Ubah string tanggal YYYY-MM-DD (jika ada) menjadi ISO
         exitDate: formData.status === 'INACTIVE' ? (formData.exitDate ? new Date(formData.exitDate).toISOString() : null) : null, 
         exitReason: formData.status === 'INACTIVE' ? (formData.exitReason || null) : null,
       };
@@ -352,7 +356,13 @@ const KonfirmasiDeaktivasiModal = ({
 };
 
 // ===================================================================
-// 5. KOMPONEN UTAMA HALAMAN (DIPERBAIKI)
+// 5. KOMPONEN BUAT AKUN MODAL --- (DIHAPUS)
+// ===================================================================
+
+
+
+// ===================================================================
+// 6. KOMPONEN UTAMA HALAMAN (DIPERBAIKI)
 // ===================================================================
 const Skeleton = ({ className = "" }: { className?: string }) => (<div className={clsx("animate-pulse bg-gray-200 rounded-md", className)} />);
 const DaftarAnggotaSkeleton = () => (
@@ -377,6 +387,9 @@ export default function DaftarAnggotaPage() {
     const [isTambahModalOpen, setTambahModalOpen] = useState(false);
     const [anggotaToEdit, setAnggotaToEdit] = useState<MemberWithRole | null>(null);
     const [anggotaToView, setAnggotaToView] = useState<MemberWithRole | null>(null);
+    // --- STATE DIHAPUS ---
+    // const [anggotaToCreateAccount, setAnggotaToCreateAccount] = useState<MemberWithRole | null>(null);
+    // --- AKHIR PENGHAPUSAN ---
     const [anggotaToDeactivate, setAnggotaToDeactivate] = useState<MemberWithRole | null>(null);
     const [isDeactivating, setIsDeactivating] = useState(false);
     
@@ -396,12 +409,8 @@ export default function DaftarAnggotaPage() {
 
     useEffect(() => { loadData(); }, [loadData]);
 
-    // FILTER FINAL: 1. Hilangkan yang punya jabatan 2. Terapkan pencarian
     const filteredAnggota = useMemo(() => { 
-        // 1. Filter: Hilangkan anggota yang memiliki jabatan (Pengurus)
         let filtered = anggotaList.filter(anggota => !anggota.jabatan);
-
-        // 2. Terapkan pencarian
         if (searchTerm) {
             const term = searchTerm.toLowerCase();
             filtered = filtered.filter(anggota =>
@@ -414,12 +423,9 @@ export default function DaftarAnggotaPage() {
         return filtered;
     }, [searchTerm, anggotaList]);
 
-    // FUNGSI API DEAKTIVASI (DIPERBAIKI)
   const handleDeactivateConfirmed = async (id: string, reason: string) => {
     setIsDeactivating(true);
-
     const promise = adminService.deactivateMember(id, reason);
-
     toast.promise(promise, {
       loading: "Menonaktifkan anggota...",
       success: (result) => {
@@ -445,7 +451,6 @@ export default function DaftarAnggotaPage() {
   };
 
     
-    // Handler tombol "Hapus" yang hanya membuka modal
     const handleHapus = (anggota: MemberWithRole) => {
         setAnggotaToDeactivate(anggota);
     };
@@ -512,6 +517,7 @@ export default function DaftarAnggotaPage() {
                                         <td className="p-4">{anggota.gender === Gender.MALE ? 'Laki-laki' : 'Perempuan'}</td>
                                         <td className="p-4">{new Date(anggota.joinDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
                                         <td className="p-4">
+                                            {/* Kolom 'Peran' ini akan menampilkan 'ANGGOTA' jika ada, atau 'Anggota' jika null */}
                                             <span className="text-gray-600">{anggota.role || 'Anggota'}</span>
                                         </td>
                                         <td className="p-4 text-center">
@@ -519,13 +525,22 @@ export default function DaftarAnggotaPage() {
                                                 {anggota.status === 'ACTIVE' ? 'Aktif' : (anggota.status === 'INACTIVE' ? 'Berhenti' : 'Pending')}
                                           </span>
                                         </td>
+                                        {/* --- BLOK AKSI YANG SUDAH BERSIH --- */}
                                         <td className="p-4 text-center space-x-1">
+                                          {/* Tombol Detail (View) */}
                                           <button onClick={() => setAnggotaToView(anggota)} className="p-1.5 text-blue-600 bg-blue-100 rounded-md hover:bg-blue-200 transition" title="Lihat Detail"><Eye size={18} /></button>
+                                          
+                                          {/* Tombol Edit */}
                                           <button onClick={() => setAnggotaToEdit(anggota)} className="p-1.5 text-green-600 bg-green-100 rounded-md hover:bg-green-200 transition" title="Edit Anggota"><Edit size={18} /></button>
+                                          
+                                          {/* Tombol 'UserPlus' Dihapus dari sini */}
+
+                                          {/* Tombol Nonaktifkan (Hapus) */}
                                           {anggota.status === 'ACTIVE' && (
-                                               <button onClick={() => handleHapus(anggota)} className="p-1.5 text-red-600 bg-red-100 rounded-md hover:bg-red-200 transition" title="Nonaktifkan Anggota"><Trash2 size={18} /></button>
-                                            )}
+                                              <button onClick={() => handleHapus(anggota)} className="p-1.5 text-red-600 bg-red-100 rounded-md hover:bg-red-200 transition" title="Nonaktifkan Anggota"><Trash2 size={18} /></button>
+                                          )}
                                         </td>
+                                        {/* --- AKHIR BLOK AKSI --- */}
                                     </tr>
                                     ))
                                 )}
@@ -540,6 +555,10 @@ export default function DaftarAnggotaPage() {
             <EditAnggotaModal isOpen={!!anggotaToEdit} anggota={anggotaToEdit} onClose={() => setAnggotaToEdit(null)} onAnggotaUpdated={handleUpdateSuccess}/>
             <DetailAnggotaModal isOpen={!!anggotaToView} anggota={anggotaToView} onClose={() => setAnggotaToView(null)}/>
             <KonfirmasiDeaktivasiModal isOpen={!!anggotaToDeactivate} anggota={anggotaToDeactivate} onClose={() => setAnggotaToDeactivate(null)} onConfirmed={handleDeactivateConfirmed} isSubmitting={isDeactivating}/>
+            
+            {/* --- MODAL BUAT AKUN DIHAPUS DARI SINI --- */}
+            {/* <BuatAkunModal ... /> */}
+            {/* --- AKHIR PENGHAPUSAN --- */}
         </div>
     );
 }
