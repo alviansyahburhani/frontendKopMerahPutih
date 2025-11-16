@@ -388,3 +388,28 @@ export interface PaginatedResult<T> {
   data: T[];
   meta: PaginationMeta;
 }
+
+export interface CooperativeProfile {
+  id: string;
+  displayName: string;
+  logoUrl: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  address: string | null;
+  description: string | null;
+  operatingHours: string | null;
+  mapCoordinates: string | null; // Format: "Latitude,Longitude"
+  // Catatan: Backend saat ini belum menyebutkan field spesifik untuk sosmed (fb/ig/twitter),
+  // jadi kita fokus pada field 'website' utama dulu.
+}
+
+export interface UpdateCooperativeProfileDto {
+  phone?: string;
+  email?: string;
+  website?: string;
+  address?: string;
+  operatingHours?: string;
+  mapCoordinates?: string;
+  description?: string;
+}

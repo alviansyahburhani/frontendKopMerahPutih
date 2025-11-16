@@ -1,5 +1,8 @@
 // frontend/services/admin.service.ts
+import { CooperativeProfile, UpdateCooperativeProfileDto } from "@/types/api.types";
 import { api, parseApiError } from '@/lib/api';
+
+
 import { MemberRegistration } from '@/types/api.types'; // Asumsi Anda punya tipe ini
 import { Gender } from '@/types/enums';
 import {
@@ -507,6 +510,16 @@ export interface SupervisorMeetingNoteResponse {
 export type PendingRegistration = Omit<MemberRegistration, 'hashedPassword'>;
 
 export const adminService = {
+
+    async getCooperativeProfile(): Promise<CooperativeProfile> {
+    const response = await api.get("/cooperative-profile");
+    return response.data; // Sesuaikan jika response dibungkus (misal: response.data.data)
+  },
+
+  async updateCooperativeProfile(data: UpdateCooperativeProfileDto): Promise<CooperativeProfile> {
+    const response = await api.patch("/cooperative-profile", data);
+    return response.data;
+  },
 
 /**
    * [Galeri] Mengambil semua item galeri (PAGINASI)
