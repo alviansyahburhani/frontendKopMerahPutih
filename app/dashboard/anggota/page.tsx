@@ -6,6 +6,9 @@ import { Banknote, HandCoins, User, Newspaper, Activity, ArrowRight, MessageSqua
 import Button from "@/components/Button";
 import { useEffect, useState } from "react";
 import clsx from "clsx";
+import { memberService } from "@/services/member.service";
+import { authService } from "@/services/auth.service";
+import { toast } from "react-hot-toast";
 
 // Tipe data yang lebih lengkap untuk dasbor baru
 type DashboardData = {
@@ -20,29 +23,89 @@ export default function AnggotaDashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // --- Data Contoh (Mock Data) ---
-  const mockTransaksi: Transaksi[] = [
-    { jenis: 'Setoran', tanggal: '15 Sep 2025', jumlah: 100000, keterangan: 'Simpanan Wajib' },
-    { jenis: 'Angsuran', tanggal: '10 Sep 2025', jumlah: -500000, keterangan: 'Angsuran Pinjaman' },
-    { jenis: 'Setoran', tanggal: '01 Sep 2025', jumlah: 250000, keterangan: 'Simpanan Sukarela' },
-  ];
-  const mockPengumuman: Pengumuman[] = [
-    { judul: "Jadwal Libur Pelayanan Idul Adha", ringkasan: "Pelayanan koperasi akan libur pada...", href: "#" },
-    { judul: "Program Pinjaman Modal Usaha Baru", ringkasan: "Ajukan pinjaman modal usaha dengan bunga...", href: "#" },
-  ];
+  // Data transaksi dan pengumuman (sementara kosong karena belum ada API backend)
+  const mockTransaksi: Transaksi[] = [];
+  const mockPengumuman: Pengumuman[] = [];
 
-  // Simulasikan delay agar skeleton terlihat
+  // Fetch data REAL dari backend
   useEffect(() => {
-    const t = setTimeout(() => {
-      const mockResult: DashboardData = {
-        namaAnggota: "Alviansyah Burhani",
-        simpanan: { total: 5750000, pokok: 500000, wajib: 4250000, sukarela: 1000000 },
-        pinjaman: { aktif: 1200000, sisaAngsuran: 8, totalAngsuran: 12 },
-      };
-      setData(mockResult);
-      setLoading(false);
-    }, 800);
-    return () => clearTimeout(t);
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+
+        console.log('🔄 Fetching dashboard data...');
+
+        // Fetch semua data secara parallel
+        const [profile, memberProfile, saldoSimpanan, pinjamanList] = await Promise.all([
+          authService.getProfile(),
+          memberService.getMyProfile(),
+          memberService.getSaldoSimpanan(),
+          memberService.getMyLoans(),
+        ]);
+
+        console.log('✅ Data fetched:', { profile, memberProfile, saldoSimpanan, pinjamanList });
+
+        // Hitung pinjaman aktif
+        const pinjamanAktif = pinjamanList.filter(p => p.status === 'ACTIVE');
+        const totalPinjamanAktif = pinjamanAktif.reduce((sum, p) => sum + p.loanAmount, 0);
+        
+        // Ambil pinjaman pertama untuk info detail
+        const firstLoan = pinjamanAktif[0];
+        let sisaAngsuran = 0;
+        let totalAngsuran = 0;
+
+        if (firstLoan) {
+          totalAngsuran = firstLoan.termMonths;
+          
+          // Hitung sisa angsuran berdasarkan tanggal
+          const loanDate = new Date(firstLoan.loanDate);
+          const today = new Date();
+          const monthsElapsed = Math.floor(
+            (today.getTime() - loanDate.getTime()) / (1000 * 60 * 60 * 24 * 30)
+          );
+          sisaAngsuran = Math.max(0, totalAngsuran - monthsElapsed);
+        }
+
+        // Hitung total simpanan
+        const totalSimpanan = 
+          (saldoSimpanan.saldoPokok || 0) + 
+          (saldoSimpanan.saldoWajib || 0) + 
+          (saldoSimpanan.saldoSukarela || 0);
+
+        // Set data dashboard
+        const dashboardData: DashboardData = {
+          namaAnggota: profile.fullName || memberProfile.fullName || 'Anggota',
+          simpanan: {
+            total: totalSimpanan,
+            pokok: saldoSimpanan.saldoPokok || 0,
+            wajib: saldoSimpanan.saldoWajib || 0,
+            sukarela: saldoSimpanan.saldoSukarela || 0,
+          },
+          pinjaman: {
+            aktif: totalPinjamanAktif,
+            sisaAngsuran,
+            totalAngsuran,
+          },
+        };
+
+        setData(dashboardData);
+        console.log('✅ Dashboard data set:', dashboardData);
+
+      } catch (err: any) {
+        console.error('❌ Error fetching dashboard data:', err);
+        toast.error('Gagal memuat data dashboard');
+        
+        // Jika error karena token, redirect ke login
+        const errorMessage = err?.message || '';
+        if (errorMessage.includes('uuid') || errorMessage.includes('Unauthorized')) {
+          setTimeout(() => authService.logout(), 2000);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
   }, []);
 
   // Skeleton kecil
@@ -158,7 +221,9 @@ export default function AnggotaDashboardPage() {
   }
 
   const pinjamanLunas = data.pinjaman.totalAngsuran - data.pinjaman.sisaAngsuran;
-  const pinjamanProgress = (pinjamanLunas / data.pinjaman.totalAngsuran) * 100;
+  const pinjamanProgress = data.pinjaman.totalAngsuran > 0 
+    ? (pinjamanLunas / data.pinjaman.totalAngsuran) * 100 
+    : 0;
 
   return (
     <div>
@@ -181,11 +246,21 @@ export default function AnggotaDashboardPage() {
                   <p className="text-2xl font-bold text-gray-800">Rp {data.simpanan.total.toLocaleString('id-ID')}</p>
                 </div>
               </div>
-              <div className="mt-4 h-16 bg-gray-50 rounded-lg flex items-center justify-center text-sm text-gray-400">
-                [Grafik Pertumbuhan Saldo 6 Bulan Terakhir]
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-1 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Simpanan Pokok</span>
+                  <span className="font-semibold text-gray-800">Rp {data.simpanan.pokok.toLocaleString('id-ID')}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Simpanan Wajib</span>
+                  <span className="font-semibold text-gray-800">Rp {data.simpanan.wajib.toLocaleString('id-ID')}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Simpanan Sukarela</span>
+                  <span className="font-semibold text-gray-800">Rp {data.simpanan.sukarela.toLocaleString('id-ID')}</span>
+                </div>
               </div>
               <div className="mt-4 flex gap-3">
-                <Button className="w-full">Setor Sukarela</Button>
                 <Link href="/dashboard/anggota/simpanan" className="w-full">
                   <Button variant="outline" className="w-full">Lihat Detail</Button>
                 </Link>
@@ -201,17 +276,22 @@ export default function AnggotaDashboardPage() {
                   <p className="text-2xl font-bold text-gray-800">Rp {data.pinjaman.aktif.toLocaleString('id-ID')}</p>
                 </div>
               </div>
-              <div className="mt-4">
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="font-medium text-gray-600">Progres Lunas</span>
-                  <span className="font-semibold">{pinjamanLunas} / {data.pinjaman.totalAngsuran} Angsuran</span>
+              {data.pinjaman.totalAngsuran > 0 ? (
+                <div className="mt-4">
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="font-medium text-gray-600">Progres Lunas</span>
+                    <span className="font-semibold">{pinjamanLunas} / {data.pinjaman.totalAngsuran} Angsuran</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div className="bg-green-600 h-2.5 rounded-full" style={{ width: `${pinjamanProgress}%` }}></div>
+                  </div>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2.5">
-                  <div className="bg-green-600 h-2.5 rounded-full" style={{ width: `${pinjamanProgress}%` }}></div>
+              ) : (
+                <div className="mt-4 p-3 bg-gray-50 rounded-lg text-center text-sm text-gray-500">
+                  Tidak ada pinjaman aktif
                 </div>
-              </div>
+              )}
               <div className="mt-4 flex gap-3">
-                <Button className="w-full">Bayar Angsuran</Button>
                  <Link href="/dashboard/anggota/pinjaman" className="w-full">
                   <Button variant="outline" className="w-full">Lihat Detail</Button>
                 </Link>
@@ -225,19 +305,26 @@ export default function AnggotaDashboardPage() {
               <Activity className="h-6 w-6 text-brand-red-600"/>
               <h3 className="text-lg font-bold text-gray-800">Aktivitas Terakhir</h3>
             </div>
-            <ul className="mt-4 space-y-3">
-              {mockTransaksi.map((trx, index) => (
-                <li key={index} className="flex justify-between items-center border-b pb-2 last:border-b-0">
-                  <div>
-                    <p className="font-semibold text-gray-700">{trx.keterangan}</p>
-                    <p className="text-xs text-gray-500">{trx.tanggal}</p>
-                  </div>
-                  <p className={`font-bold ${trx.jumlah > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {trx.jumlah > 0 ? '+' : ''} Rp {Math.abs(trx.jumlah).toLocaleString('id-ID')}
-                  </p>
-                </li>
-              ))}
-            </ul>
+            {mockTransaksi.length > 0 ? (
+              <ul className="mt-4 space-y-3">
+                {mockTransaksi.map((trx, index) => (
+                  <li key={index} className="flex justify-between items-center border-b pb-2 last:border-b-0">
+                    <div>
+                      <p className="font-semibold text-gray-700">{trx.keterangan}</p>
+                      <p className="text-xs text-gray-500">{trx.tanggal}</p>
+                    </div>
+                    <p className={`font-bold ${trx.jumlah > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {trx.jumlah > 0 ? '+' : ''} Rp {Math.abs(trx.jumlah).toLocaleString('id-ID')}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="mt-4 text-center py-8 text-gray-500 text-sm">
+                <Activity className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                <p>Belum ada aktivitas transaksi</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -248,7 +335,7 @@ export default function AnggotaDashboardPage() {
             <User className="h-12 w-12 mx-auto text-gray-400" />
             <h3 className="mt-2 text-lg font-bold text-gray-800">{data.namaAnggota}</h3>
             <p className="text-sm text-gray-500">Anggota Aktif</p>
-            <Link href="/dashboard/anggota/profile" className="w-full">
+            <Link href="/dashboard/anggota/profil" className="w-full">
               <Button variant="outline" className="w-full mt-4">Lihat Profil Lengkap</Button>
             </Link>
           </div>
@@ -283,20 +370,26 @@ export default function AnggotaDashboardPage() {
               <Newspaper className="h-6 w-6 text-brand-red-600"/>
               <h3 className="text-lg font-bold text-gray-800">Pengumuman</h3>
             </div>
-            <ul className="mt-4 space-y-4">
-              {mockPengumuman.map((item, index) => (
-                <li key={index} className="border-b pb-2 last:border-b-0">
-                  <a href={item.href} className="group">
-                    <p className="font-semibold text-gray-700 group-hover:text-brand-red-600">{item.judul}</p>
-                    <p className="text-xs text-gray-500 mt-1">{item.ringkasan}</p>
-                  </a>
-                </li>
-              ))}
-            </ul>
+            {mockPengumuman.length > 0 ? (
+              <ul className="mt-4 space-y-4">
+                {mockPengumuman.map((item, index) => (
+                  <li key={index} className="border-b pb-2 last:border-b-0">
+                    <a href={item.href} className="group">
+                      <p className="font-semibold text-gray-700 group-hover:text-brand-red-600">{item.judul}</p>
+                      <p className="text-xs text-gray-500 mt-1">{item.ringkasan}</p>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="mt-4 text-center py-6 text-gray-500 text-sm">
+                <Newspaper className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                <p>Tidak ada pengumuman</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
     </div>
   );
 }
-
