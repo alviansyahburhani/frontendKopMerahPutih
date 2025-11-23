@@ -1,7 +1,7 @@
 // frontend/services/member.service.ts
 import { api, parseApiError } from '@/lib/api';
-import { SimpananSaldo,MemberProfile,UpdateMyProfileDto, Loan } from '@/types/api.types';
-import {GuestBookEntry } from '@/types/api.types';
+import { SimpananSaldo, MemberProfile, UpdateMyProfileDto, Loan } from '@/types/api.types';
+import { GuestBookEntry } from '@/types/api.types';
 
 /**
  * Wrapper untuk menangani request dan mengembalikan data atau melempar error yang bersih.
@@ -26,7 +26,7 @@ export interface MemberSuggestionResponse {
   id: string;
   suggestion: string;
   response: string | null;
-  createdAt: string; // Tanggal saran dibuat
+  createdAt: string;
   updatedAt: string;
   member: {
     id: string;
@@ -42,54 +42,52 @@ export interface MemberSuggestionResponse {
 export const memberService = {
 
   /**
-   * [BARU] Mengambil data profil lengkap anggota yang login.
+   * Mengambil data profil lengkap anggota yang login.
    * Endpoint: GET /profile/me
    */
   getMyProfile: (): Promise<MemberProfile> => {
     return handleRequest(api.get<MemberProfile>('/profile/me'));
   },
 
-/**
-   * [MODIFIKASI] Memperbarui data profil anggota yang login.
-   * Menggunakan DTO yang benar (UpdateMyProfileDto)
+  /**
+   * Memperbarui data profil anggota yang login.
    */
-  updateMyProfile: (
-    dto: UpdateMyProfileDto, // <-- [DIUBAH] Gunakan DTO yang benar
-  ): Promise<MemberProfile> => {
-    // Endpoint tetap sama (PATCH /profile/me)
+  updateMyProfile: (dto: UpdateMyProfileDto): Promise<MemberProfile> => {
     return handleRequest(api.patch<MemberProfile>('/profile/me', dto));
   },
 
-
-
   /**
-   * [BARU] Mengambil daftar buku tamu (Perlu login Anggota)
+   * Mengambil daftar buku tamu
    * Endpoint: GET /guest-book
    */
   getGuestBookEntries: (): Promise<GuestBookEntry[]> => {
     return handleRequest(api.get<GuestBookEntry[]>('/guest-book'));
   },
 
-
   /**
-   * Mengambil saldo simpanan (pokok, wajib, sukarela)
-   * untuk anggota yang sedang login.
-   * Endpoint: GET /simpanan/saldo
+   * Mengambil saldo simpanan untuk anggota yang sedang login.
+   * Endpoint: GET /simpanan/saldo/saya
    */
   getSaldoSimpanan: (): Promise<SimpananSaldo> => {
-    // Endpoint ini otomatis mengambil userId dari token di backend
-    return handleRequest(api.get<SimpananSaldo>('/simpanan/saldo'));
+    return handleRequest(api.get<SimpananSaldo>('/simpanan/saldo/saya'));
+  },
+
+  /**
+   * Mengambil riwayat transaksi simpanan milik anggota yang login
+   * Endpoint: GET /simpanan/transaksi/saya
+   */
+  getMyTransaksi: (): Promise<any[]> => {
+    return handleRequest(api.get<any[]>('/simpanan/transaksi/saya'));
   },
 
   /**
    * Mengambil daftar pinjaman milik anggota yang sedang login.
-   * Endpoint: GET /loans/my-loans
+   * Backend otomatis filter berdasarkan role dari JWT token.
+   * Endpoint: GET /loans (BUKAN /loans/my-loans)
    */
   getMyLoans: (): Promise<Loan[]> => {
-    // Endpoint ini juga otomatis mengambil userId dari token
-    return handleRequest(api.get<Loan[]>('/loans/my-loans'));
+    return handleRequest(api.get<Loan[]>('/loans'));
   },
-
 
   /**
    * Mengirimkan saran baru dari anggota yang login
