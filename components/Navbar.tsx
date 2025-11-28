@@ -1,11 +1,12 @@
 "use client";
 import Link from "next/link";
 import { Menu } from "lucide-react";
-import { useState, useEffect } from "react"; // 1. Impor hooks
+import { useState, useEffect } from "react";
 import clsx from "clsx";
-import { publicService } from "@/services/public.service"; // <-- TAMBAHKAN
+import { publicService } from "@/services/public.service";
 import { superAdminService } from "@/services/superadmin.service";
-// 2. Definisikan link untuk kedua kondisi
+
+// 1. Link Navigasi
 const tenantNav = [
   { href: "/", label: "Beranda" },
   { href: "/berita", label: "Berita" },
@@ -17,100 +18,68 @@ const tenantNav = [
 const mainDomainNav = [
   { href: "/", label: "Beranda" },
   { href: "/berita", label: "Berita" },
-  // Katalog & Galeri dihilangkan
   { href: "/kontak", label: "Kontak" },
 ];
 
-// 3. Definisikan domain utama Anda
-// (Berdasarkan file app/(publik)/page.tsx dan services/public.service.ts)
-const MAIN_DOMAINS = [
-  'localhost',
-  'sistemkoperasi.id' // Ganti jika domain produksi Anda berbeda
-];
+const MAIN_DOMAINS = ['localhost', 'sistemkoperasi.id'];
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
-  const [displayName, setDisplayName] = useState("Koperasi Merah Putih");
-  // 4. Tambah state untuk menentukan apakah ini domain utama
+  const [displayName, setDisplayName] = useState(""); // Kosongkan dulu agar tidak 'glitch' teks
+  
+  // 2. STATE LOADING (Penting!)
+  const [isCheckingDomain, setIsCheckingDomain] = useState(true);
   const [isMainDomain, setIsMainDomain] = useState(false);
 
-  // 5. Gunakan useEffect untuk cek hostname di sisi client
   useEffect(() => {
     if (typeof window !== "undefined") {
       const hostname = window.location.hostname;
       const mainDomain = MAIN_DOMAINS.includes(hostname);
+      
       setIsMainDomain(mainDomain);
+      // PENTING: Jangan matikan loading di sini, tapi biarkan
+      // loading tetap jalan sampai kita minimal tahu nama display-nya (opsional),
+      // TAPI untuk UX cepat, kita matikan isCheckingDomain di sini agar layout menu muncul,
+      // sedangkan nama bisa loading belakangan.
+      setIsCheckingDomain(false); 
 
-      // --- MODIFIKASI: Panggil API berdasarkan domain ---
+      // --- FETCH DATA ---
       if (mainDomain) {
-        // Jika di domain utama, panggil pengaturan Super Admin
         superAdminService.getPublicPlatformSettings()
-          .then(settings => {
-            // Backend Anda mengembalikan { settingValue: '...' }
-            setDisplayName(settings.settingValue || "Platform Koperasi");
-          })
+          .then(settings => setDisplayName(settings.settingValue || "Platform Koperasi"))
           .catch(err => {
-            console.error("Gagal fetch platform settings:", err);
-            setDisplayName("Platform Koperasi"); // Fallback
+             console.error(err); 
+             setDisplayName("Platform Koperasi");
           });
       } else {
-        // Jika di subdomain, panggil profil koperasi tenant
         publicService.getPublicCooperativeProfile()
-          .then(profile => {
-            setDisplayName(profile.displayName || "Koperasi Merah Putih");
-          })
+          .then(profile => setDisplayName(profile.displayName || "Koperasi Merah Putih"))
           .catch(err => {
-            console.error("Gagal fetch cooperative profile:", err);
-            setDisplayName("Koperasi"); // Fallback
+             console.error(err); 
+             setDisplayName("Koperasi Merah Putih");
           });
       }
     }
-    }, []); // [] berarti hanya berjalan sekali saat komponen dimuat
+  }, []);
 
-  // 6. Tentukan link dan tombol CTA mana yang akan digunakan
+  // 3. Tentukan Navigasi
   const navLinks = isMainDomain ? mainDomainNav : tenantNav;
 
-  const CtaButton = () => {
-    if (isMainDomain) {
-      // Tombol untuk "Daftarkan Koperasi Anda"
-      return (
-        <Link
-          href="/auth/daftar-koperasi" // Link ke pendaftaran koperasi
-          className="px-4 py-2 rounded-lg border border-white hover:bg-white/10"
-        >
-          Daftarkan Koperasi Anda
-        </Link>
-      );
-    }
-    // Tombol "Masuk" (default untuk tenant)
-    return (
-      <Link
-        href="/auth/login" // Link ke login biasa
-        className="px-4 py-2 rounded-lg border border-white hover:bg-white/10"
-      >
-        Masuk
-      </Link>
-    );
-  };
+  // 4. Komponen CTA (Tombol Aksi)
+  const CtaButton = ({ mobile = false }: { mobile?: boolean }) => {
+    const baseClass = mobile 
+      ? "inline-block px-4 py-2 rounded-lg border border-white hover:bg-white/10"
+      : "px-4 py-2 rounded-lg border border-white hover:bg-white/10 transition-colors";
 
-  const CtaButtonMobile = () => {
     if (isMainDomain) {
       return (
-        <Link
-          href="/auth/daftar-koperasi"
-          onClick={() => setOpen(false)}
-          className="inline-block px-4 py-2 rounded-lg border border-white hover:bg-white/10"
-        >
+        <Link href="/auth/daftar-koperasi" onClick={() => mobile && setOpen(false)} className={baseClass}>
           Daftarkan Koperasi Anda
         </Link>
       );
     }
     return (
-      <Link
-        href="/auth/login"
-        onClick={() => setOpen(false)}
-        className="inline-block px-4 py-2 rounded-lg border border-white hover:bg-white/10"
-      >
+      <Link href="/auth/login" onClick={() => mobile && setOpen(false)} className={baseClass}>
         Masuk
       </Link>
     );
@@ -118,52 +87,81 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 shadow-md">
-      <nav className="bg-brand-red-600 text-white">
+      <nav className="bg-brand-red-600 text-white transition-all duration-300">
         <div className="container mx-auto flex items-center justify-between py-3 px-4">
-          <Link href="/" className="text-xl font-extrabold tracking-wide">
-            {displayName}
+          
+          {/* LOGO AREA */}
+          <Link href="/" className="text-xl font-extrabold tracking-wide flex items-center min-h-[30px]">
+             {/* Jika nama belum dimuat, tampilkan skeleton bar putih transparan */}
+             {!displayName ? (
+                 <div className="h-6 w-40 bg-white/20 rounded animate-pulse" />
+             ) : (
+                 displayName
+             )}
           </Link>
+
+          {/* MOBILE MENU TOGGLE */}
           <button
-            className="md:hidden p-2 rounded-lg hover:bg-brand-red-700"
+            className="md:hidden p-2 rounded-lg hover:bg-brand-red-700 focus:outline-none"
             onClick={() => setOpen((v) => !v)}
             aria-label="Menu"
           >
             <Menu size={22} />
           </button>
 
-          {/* 7. Render navigasi & tombol CTA dinamis */}
+          {/* DESKTOP NAV */}
           <ul className="hidden md:flex items-center gap-6">
-            {navLinks.map((n) => (
-              <li key={n.href}>
-                <Link className="hover:text-red-100" href={n.href}>
-                  {n.label}
-                </Link>
-              </li>
-            ))}
-            <li>
-              <CtaButton />
-            </li>
+            {isCheckingDomain ? (
+                // SKELETON LOAD UNTUK MENU (Agar tidak berkedip antar menu tenant/main)
+                <>
+                   {[1, 2, 3, 4].map((i) => (
+                       <li key={i}><div className="h-4 w-16 bg-white/20 rounded animate-pulse" /></li>
+                   ))}
+                   <li><div className="h-9 w-24 bg-white/20 rounded-lg animate-pulse" /></li>
+                </>
+            ) : (
+                // MENU ASLI
+                <>
+                    {navLinks.map((n) => (
+                    <li key={n.href}>
+                        <Link className="hover:text-red-100 font-medium transition-colors" href={n.href}>
+                        {n.label}
+                        </Link>
+                    </li>
+                    ))}
+                    <li>
+                        <CtaButton />
+                    </li>
+                </>
+            )}
           </ul>
         </div>
 
-        {/* 8. Render menu mobile dinamis */}
+        {/* MOBILE NAV (Dropdown) */}
         <div
           className={clsx(
-            "md:hidden border-t border-white/20",
-            open ? "block" : "hidden"
+            "md:hidden border-t border-white/10 bg-brand-red-700 overflow-hidden transition-all duration-300 ease-in-out",
+            open ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
           )}
         >
-          <ul className="px-4 py-3 space-y-3">
-            {navLinks.map((n) => (
-              <li key={n.href}>
-                <Link href={n.href} onClick={() => setOpen(false)}>
-                  {n.label}
-                </Link>
-              </li>
-            ))}
-            <li>
-              <CtaButtonMobile />
-            </li>
+          <ul className="px-4 py-4 space-y-4">
+             {isCheckingDomain ? (
+                 // Skeleton Mobile
+                 [1,2,3].map(i => <div key={i} className="h-4 w-1/3 bg-white/20 rounded animate-pulse mb-3"/>)
+             ) : (
+                 <>
+                    {navLinks.map((n) => (
+                        <li key={n.href}>
+                            <Link href={n.href} onClick={() => setOpen(false)} className="block hover:translate-x-1 transition-transform">
+                            {n.label}
+                            </Link>
+                        </li>
+                    ))}
+                    <li className="pt-2">
+                        <CtaButton mobile />
+                    </li>
+                 </>
+             )}
           </ul>
         </div>
       </nav>
