@@ -32,7 +32,7 @@ export default function Gallery({ images = [], limit }: Props) {
     <>
       <div className="columns-1 sm:columns-2 lg:columns-3 gap-4">
         {/* --- [MODIFIKASI] Mapping --- */}
-        {data.map((img, i) => ( // Variabel diubah ke 'img'
+        {data.map((img, i) => (
           <figure
             key={img.src + i} // Gunakan img.src sebagai key
             className="mb-4 break-inside-avoid relative group cursor-zoom-in"
