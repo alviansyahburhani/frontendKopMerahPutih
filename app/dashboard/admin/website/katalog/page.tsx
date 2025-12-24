@@ -10,6 +10,7 @@ import clsx from "clsx";
 import { productsService } from "@/services/products.service";
 import { Product, ProductCategory, CreateProductData, UpdateProductData } from "@/types/product";
 import ProductFormModal from "@/components/ProductFormModal";
+import { getFullImageUrl } from "@/lib/imageUtils";
 
 export default function ManajemenKatalogPage() {
   const [filters, setFilters] = useState({
@@ -318,11 +319,11 @@ export default function ManajemenKatalogPage() {
                 <div className="relative w-full h-40">
                   {produk.imageUrl ? (
                     <Image 
-                      src={produk.imageUrl} 
+                      src={getFullImageUrl(produk.imageUrl)} // Gunakan Helper
                       alt={produk.name} 
                       fill 
                       style={{ objectFit: 'cover' }} 
-                      unoptimized // Add this attribute to bypass Next.js Image optimization for external images
+                      unoptimized // Pastikan unoptimized ada
                     />
                   ) : (
                     <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500">No Image</div>

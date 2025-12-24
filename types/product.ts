@@ -1,45 +1,29 @@
-// types/product.ts
-
-export interface ProductCategory {
-  id: string;
-  name: string;
-  slug: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface Product {
   id: string;
   name: string;
-  slug: string;
   description?: string;
   price: number;
   unit?: string;
   sku?: string;
+  isAvailable: boolean; // <--- Pastikan ini ada
   imageUrl?: string;
-  isAvailable: boolean;
   categoryId: string;
-  createdAt: string;
-  updatedAt: string;
-  category: ProductCategory;
+  category?: {
+    name: string;
+    slug: string;
+  };
 }
 
+// Update DTO untuk Create
 export interface CreateProductData {
   name: string;
   description?: string;
   price: number;
   unit?: string;
   sku?: string;
-  isAvailable?: boolean;
   categoryId: string;
+  isAvailable?: boolean; // <--- Tambahkan ini (Wajib sama dengan backend)
 }
 
-export interface UpdateProductData {
-  name?: string;
-  description?: string;
-  price?: number;
-  unit?: string;
-  sku?: string;
-  isAvailable?: boolean;
-  categoryId?: string;
-}
+// Update DTO untuk Update
+export interface UpdateProductData extends Partial<CreateProductData> {}
